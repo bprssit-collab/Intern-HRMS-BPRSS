@@ -62,6 +62,85 @@ export async function getFaceDescriptor(
   return detection.descriptor;
 }
 
+export interface LiveDetectionResult {
+  detected: boolean;
+  box?: { x: number; y: number; width: number; height: number };
+  landmarks?: { x: number; y: number }[];
+  status: 'searching' | 'too_far' | 'too_close' | 'off_center' | 'optimal';
+  message: string;
+  distanceScore: number; // 0 (far) .. 50 (ideal) .. 100 (close)
+  faceRatio: number;
+}
+
+/**
+ * Fast real-time face detection for live video stream guidance.
+ * Analyzes face presence, position, and distance ratio relative to optimal viewport bounds.
+ */
+export async function detectLiveFace(
+  video: HTMLVideoElement
+): Promise<LiveDetectionResult> {
+  const faceapi = await import('face-api.js');
+
+  const detection = await faceapi
+    .detectSingleFace(
+      video,
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.45 })
+    )
+    .withFaceLandmarks();
+
+  if (!detection) {
+    return {
+      detected: false,
+      status: 'searching',
+      message: 'Arahkan wajah ke dalam lingkaran panduan',
+      distanceScore: 0,
+      faceRatio: 0,
+    };
+  }
+
+  const videoW = video.videoWidth || 640;
+  const videoH = video.videoHeight || 480;
+  const box = detection.detection.box;
+
+  const faceRatio = box.width / videoW;
+  const centerX = (box.x + box.width / 2) / videoW;
+  const centerY = (box.y + box.height / 2) / videoH;
+
+  const distanceScore = Math.min(
+    100,
+    Math.max(0, Math.round(((faceRatio - 0.18) / 0.40) * 100))
+  );
+
+  let status: LiveDetectionResult['status'] = 'optimal';
+  let message = 'Jarak & Posisi Wajah Optimal!';
+
+  if (faceRatio < 0.22) {
+    status = 'too_far';
+    message = 'Wajah terlalu jauh — silakan dekatkan kamera';
+  } else if (faceRatio > 0.58) {
+    status = 'too_close';
+    message = 'Wajah terlalu dekat — silakan mundurkan sedikit';
+  } else if (Math.abs(centerX - 0.5) > 0.15 || Math.abs(centerY - 0.48) > 0.18) {
+    status = 'off_center';
+    message = 'Posisikan wajah tepat di tengah lingkaran';
+  }
+
+  const landmarks = detection.landmarks.positions.map((p: any) => ({
+    x: p.x,
+    y: p.y,
+  }));
+
+  return {
+    detected: true,
+    box: { x: box.x, y: box.y, width: box.width, height: box.height },
+    landmarks,
+    status,
+    message,
+    distanceScore,
+    faceRatio,
+  };
+}
+
 /**
  * Compares a live face descriptor against a stored descriptor.
  * Uses Euclidean distance: smaller = more similar.
