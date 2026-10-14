@@ -405,12 +405,12 @@ export function FaceCapture({
 
           {/* Meter track */}
           <div className="relative h-2 w-full bg-slate-800 rounded-full overflow-hidden flex items-center">
-            {/* Zones: Red/Amber left, Green center, Orange right */}
-            <div className="w-[35%] h-full bg-amber-500/20 border-r border-slate-700" />
-            <div className="w-[30%] h-full bg-emerald-500/30 border-r border-slate-700 relative">
+            {/* Zones: Amber left (22%), Green center (56%), Orange right (22%) */}
+            <div className="w-[22%] h-full bg-amber-500/20 border-r border-slate-700" />
+            <div className="w-[56%] h-full bg-emerald-500/30 border-r border-slate-700 relative">
               <div className="absolute inset-0 bg-emerald-400/20 animate-pulse" />
             </div>
-            <div className="w-[35%] h-full bg-orange-500/20" />
+            <div className="w-[22%] h-full bg-orange-500/20" />
 
             {/* Dynamic cursor needle indicator */}
             {liveState.detected && (

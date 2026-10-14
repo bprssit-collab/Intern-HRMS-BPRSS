@@ -102,27 +102,31 @@ export async function detectLiveFace(
   const videoH = video.videoHeight || 480;
   const box = detection.detection.box;
 
-  const faceRatio = box.width / videoW;
+  // Use the smaller dimension of video to be invariant to portrait vs landscape camera modes
+  const minDimension = Math.min(videoW, videoH);
+  const faceRatio = box.width / minDimension;
   const centerX = (box.x + box.width / 2) / videoW;
   const centerY = (box.y + box.height / 2) / videoH;
 
+  // Normalized distance score: 0 (far) .. 50 (ideal) .. 100 (close)
   const distanceScore = Math.min(
     100,
-    Math.max(0, Math.round(((faceRatio - 0.18) / 0.40) * 100))
+    Math.max(0, Math.round(((faceRatio - 0.14) / 0.52) * 100))
   );
 
   let status: LiveDetectionResult['status'] = 'optimal';
   let message = 'Jarak & Posisi Wajah Optimal!';
 
-  if (faceRatio < 0.22) {
+  // Highly flexible thresholds tailored for smartphone selfie distance (25cm - 70cm)
+  if (faceRatio < 0.16) {
     status = 'too_far';
     message = 'Wajah terlalu jauh — silakan dekatkan kamera';
-  } else if (faceRatio > 0.58) {
+  } else if (faceRatio > 0.70) {
     status = 'too_close';
     message = 'Wajah terlalu dekat — silakan mundurkan sedikit';
-  } else if (Math.abs(centerX - 0.5) > 0.15 || Math.abs(centerY - 0.48) > 0.18) {
+  } else if (Math.abs(centerX - 0.5) > 0.22 || Math.abs(centerY - 0.5) > 0.24) {
     status = 'off_center';
-    message = 'Posisikan wajah tepat di tengah lingkaran';
+    message = 'Posisikan wajah ke arah tengah lingkaran';
   }
 
   const landmarks = detection.landmarks.positions.map((p: any) => ({
