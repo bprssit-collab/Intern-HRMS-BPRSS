@@ -1,0 +1,653 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  CalendarCheck,
+  Search,
+  Printer,
+  Edit3,
+  Layers,
+  ChevronRight,
+  Sparkles,
+  Info,
+  Calendar,
+  AlertCircle,
+  Loader2,
+  Check,
+  Download,
+  FileSpreadsheet,
+} from 'lucide-react';
+import { formatDateID } from '@/lib/utils';
+import type { AttendanceRecapData, AttendanceCode, Batch } from '@/types';
+
+export default function AttendanceRecapPage() {
+  const [data, setData] = useState<AttendanceRecapData | null>(null);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState<string>('');
+  const [startDate, setStartDate] = useState('2026-09-28');
+  const [endDate, setEndDate] = useState('2026-10-11');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Edit Cell Modal State
+  const [editModal, setEditModal] = useState<{
+    isOpen: boolean;
+    userId: string;
+    userName: string;
+    date: string;
+    currentCode: AttendanceCode | null;
+    currentNotes: string;
+  } | null>(null);
+  const [isSavingCell, setIsSavingCell] = useState(false);
+
+  const fetchRecap = async (batchId?: string, sDate?: string, eDate?: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    const bId = batchId !== undefined ? batchId : selectedBatchId;
+    const start = sDate || startDate;
+    const end = eDate || endDate;
+
+    try {
+      const url = `/api/hrd/attendance-recap?batchId=${bId}&startDate=${start}&endDate=${end}`;
+      const res = await fetch(url);
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Gagal memuat rekap absensi.');
+      }
+
+      setData(json.data);
+      setBatches(json.batches || []);
+      if (json.data?.batch?.id && !selectedBatchId) {
+        setSelectedBatchId(json.data.batch.id);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecap();
+  }, []);
+
+  const handleFilterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchRecap(selectedBatchId, startDate, endDate);
+  };
+
+  const handlePresetSelect = (preset: 'ref' | 'month') => {
+    if (preset === 'ref') {
+      setStartDate('2026-09-28');
+      setEndDate('2026-10-11');
+      fetchRecap(selectedBatchId, '2026-09-28', '2026-10-11');
+    } else {
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+      setStartDate(firstDay);
+      setEndDate(lastDay);
+      fetchRecap(selectedBatchId, firstDay, lastDay);
+    }
+  };
+
+  const openEditModal = (userId: string, userName: string, date: string, cell: any) => {
+    setEditModal({
+      isOpen: true,
+      userId,
+      userName,
+      date,
+      currentCode: cell?.code || null,
+      currentNotes: cell?.notes || '',
+    });
+  };
+
+  const handleSaveCell = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editModal) return;
+
+    setIsSavingCell(true);
+    try {
+      const res = await fetch('/api/hrd/attendance-recap', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: editModal.userId,
+          date: editModal.date,
+          attendance_status: editModal.currentCode,
+          notes: editModal.currentNotes,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Gagal menyimpan status absensi.');
+      }
+
+      setEditModal(null);
+      await fetchRecap(selectedBatchId, startDate, endDate);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSavingCell(false);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportCSV = () => {
+    if (!data) return;
+
+    const escapeCsv = (val: any) => {
+      const str = String(val ?? '');
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const lines: string[] = [];
+    lines.push(`ABSENSI MAGANG MAHASISWA ${data.batch.name.toUpperCase()} PT BPR SEHAT SEJAHTERA`);
+    lines.push(`Periode: ${data.startDate} s/d ${data.endDate}`);
+    lines.push('');
+
+    // Header columns
+    const headerCols = [
+      'NO',
+      'NAMA MAHASISWA',
+      'BAGIAN',
+      'STATUS',
+      ...data.dateList.map((d) => `${d.dayName} ${d.date.split('-')[2]}/${d.date.split('-')[1]}`),
+      'H',
+      'S',
+      'I',
+      'A',
+      'FULL',
+      '1/2',
+      'KETERANGAN RINCI',
+    ];
+    lines.push(headerCols.map(escapeCsv).join(','));
+
+    let rowIdx = 1;
+    for (const group of data.departments) {
+      for (const row of group.rows) {
+        const rowCols = [
+          rowIdx++,
+          row.name,
+          row.department,
+          row.status === 'perbantuan' ? 'Perbantuan' : 'Aktif',
+          ...data.dateList.map((d) => row.cells[d.date]?.code || '-'),
+          row.summary.H,
+          row.summary.S,
+          row.summary.I,
+          row.summary.A,
+          row.summary.Full,
+          row.summary.Half,
+          row.notesList.join('; '),
+        ];
+        lines.push(rowCols.map(escapeCsv).join(','));
+      }
+    }
+
+    const csvContent = '\uFEFF' + lines.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute(
+      'download',
+      `rekap-absensi-${data.batch.name.toLowerCase().replace(/\s+/g, '-')}-${data.startDate}-sd-${data.endDate}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Control bar / Filter (hidden during print) */}
+      <div className="no-print space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
+              <CalendarCheck className="w-6 h-6 text-amber-400" />
+              Rekap Absensi Magang Mahasiswa
+            </h1>
+            <p className="text-slate-400 text-sm">
+              Tampilan matriks kehadiran horizontal sesuai format resmi PT BPR Sehat Sejahtera.
+            </p>
+          </div>
+          <div className="flex items-center gap-2.5 self-start sm:self-auto">
+            <button
+              onClick={handleExportCSV}
+              disabled={!data || isLoading}
+              className="btn-secondary flex items-center gap-2 text-sm border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50"
+              title="Unduh format spreadsheet CSV/Excel"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              Ekspor Excel (CSV)
+            </button>
+            <button
+              onClick={handlePrint}
+              disabled={!data || isLoading}
+              className="btn-secondary flex items-center gap-2 text-sm border-white/20 hover:border-white/40 disabled:opacity-50"
+            >
+              <Printer className="w-4 h-4 text-slate-300" />
+              Cetak / PDF
+            </button>
+          </div>
+        </div>
+
+        {/* Filter Card */}
+        <div className="glass-card p-4">
+          <form onSubmit={handleFilterSubmit} className="flex flex-col lg:flex-row gap-4 items-end">
+            <div className="space-y-1 w-full lg:w-48">
+              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                Pilih Batch
+              </label>
+              <select
+                value={selectedBatchId}
+                onChange={(e) => setSelectedBatchId(e.target.value)}
+                className="input-field text-sm"
+              >
+                {batches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} {b.is_active ? '(Aktif)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1 w-full lg:w-40">
+              <label className="text-xs font-semibold text-slate-300">Dari Tanggal</label>
+              <input
+                type="date"
+                required
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="input-field text-sm"
+              />
+            </div>
+
+            <div className="space-y-1 w-full lg:w-40">
+              <label className="text-xs font-semibold text-slate-300">Sampai Tanggal</label>
+              <input
+                type="date"
+                required
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="input-field text-sm"
+              />
+            </div>
+
+            <div className="flex gap-2 w-full lg:w-auto">
+              <button type="submit" className="btn-primary text-sm h-[42px] flex items-center gap-2 flex-1 lg:flex-initial">
+                <Search className="w-4 h-4" />
+                Filter Rekap
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handlePresetSelect('ref')}
+                className="px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium transition-colors"
+                title="Buka periode contoh Minggu 5 & 6 (28 Sep - 11 Okt 2026)"
+              >
+                Preset Minggu 5 & 6
+              </button>
+            </div>
+          </form>
+
+          {/* Legend */}
+          <div className="mt-4 pt-3 border-t border-white/5 flex flex-wrap items-center gap-4 text-xs text-slate-400">
+            <span className="font-semibold text-slate-300">Petunjuk Kode:</span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 h-5 bg-white text-slate-900 font-bold rounded flex items-center justify-center text-[10px]">H</span>
+              Hadir Penuh
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 h-5 bg-emerald-500 text-white font-bold rounded flex items-center justify-center text-[10px]">1/2</span>
+              Setengah Hari
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 h-5 bg-sky-400 text-slate-950 font-bold rounded flex items-center justify-center text-[10px]">I</span>
+              Izin
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 h-5 bg-amber-400 text-slate-950 font-bold rounded flex items-center justify-center text-[10px]">S</span>
+              Sakit
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 h-5 bg-red-500 text-white font-bold rounded flex items-center justify-center text-[10px]">A</span>
+              Alpa / Tanpa Ket.
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 h-5 bg-amber-300/90 rounded border border-amber-400"></span>
+              Akhir Pekan / Libur
+            </span>
+            <span className="text-slate-500 italic ml-auto">
+              * Klik pada sel tanggal untuk mengubah status kehadiran atau menambah catatan.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="alert alert-error">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* SPREADSHEET MATRIX TABLE */}
+      {isLoading ? (
+        <div className="flex justify-center p-16">
+          <div className="spinner !w-12 !h-12 text-amber-400"></div>
+        </div>
+      ) : !data || data.departments.length === 0 ? (
+        <div className="glass-card p-12 text-center text-slate-400 text-sm">
+          Tidak ada data kehadiran yang ditemukan untuk kriteria filter ini.
+        </div>
+      ) : (
+        <div className="glass-card overflow-hidden shadow-2xl print:border-none print:shadow-none print:bg-white print:text-black">
+          {/* Document Header (Always visible & styled prominently for printing) */}
+          <div className="p-6 text-center border-b border-white/10 bg-slate-900/60 print:bg-white print:text-black print:border-b-2 print:border-black">
+            <h2 className="text-lg md:text-xl font-bold tracking-widest uppercase text-white print:text-black">
+              ABSENSI MAGANG MAHASISWA
+            </h2>
+            <h3 className="text-base font-extrabold text-amber-400 print:text-black uppercase tracking-wider my-1">
+              {data.batch.name}
+            </h3>
+            <h4 className="text-sm font-semibold tracking-wider text-slate-300 print:text-black">
+              PT BPR SEHAT SEJAHTERA
+            </h4>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-center border-collapse border border-slate-700 print:border-black text-xs">
+              {/* Header Row 1: Weeks Grouping */}
+              <thead>
+                <tr className="bg-slate-800/90 text-slate-200 print:bg-slate-100 print:text-black">
+                  <th
+                    rowSpan={2}
+                    className="border border-slate-700 print:border-black px-3 py-2 text-left font-bold w-28 bg-slate-800/60 print:bg-slate-200"
+                  >
+                    BAGIAN
+                  </th>
+                  <th
+                    rowSpan={2}
+                    className="border border-slate-700 print:border-black px-3 py-2 text-left font-bold w-48 bg-slate-800/60 print:bg-slate-200"
+                  >
+                    NAMA
+                  </th>
+
+                  {/* Weeks columns */}
+                  {data.weeks.map((w, idx) => (
+                    <th
+                      key={idx}
+                      colSpan={w.dateCount}
+                      className="border border-slate-700 print:border-black px-2 py-1.5 font-bold uppercase tracking-wider bg-slate-800 print:bg-slate-200"
+                    >
+                      {w.label}
+                    </th>
+                  ))}
+
+                  {/* Keterangan Summary Header */}
+                  <th
+                    colSpan={6}
+                    className="border border-slate-700 print:border-black px-2 py-1.5 font-bold uppercase tracking-wider bg-amber-400 text-slate-950 print:bg-amber-300"
+                  >
+                    KETERANGAN
+                  </th>
+
+                  {/* Keterangan Rinci Header */}
+                  <th
+                    rowSpan={2}
+                    className="border border-slate-700 print:border-black px-4 py-2 font-bold uppercase tracking-wider min-w-[200px] text-left bg-sky-600 text-white print:bg-sky-200 print:text-black"
+                  >
+                    KETERANGAN RINCI
+                  </th>
+                </tr>
+
+                {/* Header Row 2: Date Columns & Summary Codes */}
+                <tr className="bg-slate-800/60 text-slate-300 print:bg-slate-50 print:text-black text-[11px]">
+                  {/* Dates columns */}
+                  {data.dateList.map((d) => (
+                    <th
+                      key={d.date}
+                      className={`border border-slate-700 print:border-black px-1.5 py-1.5 font-semibold min-w-[34px] ${
+                        d.is_weekend
+                          ? 'bg-amber-300/90 text-slate-950 print:bg-yellow-300'
+                          : 'bg-slate-800 print:bg-slate-100 text-slate-200 print:text-black'
+                      }`}
+                    >
+                      <div className="text-[10px] uppercase font-mono leading-none">
+                        {d.date.slice(8, 10)}/{d.date.slice(5, 7)}
+                      </div>
+                    </th>
+                  ))}
+
+                  {/* Summary columns */}
+                  <th className="border border-slate-700 print:border-black w-7 py-1.5 font-bold bg-orange-500 text-white">H</th>
+                  <th className="border border-slate-700 print:border-black w-7 py-1.5 font-bold bg-amber-400 text-slate-950">S</th>
+                  <th className="border border-slate-700 print:border-black w-7 py-1.5 font-bold bg-cyan-400 text-slate-950">I</th>
+                  <th className="border border-slate-700 print:border-black w-7 py-1.5 font-bold bg-red-600 text-white">A</th>
+                  <th className="border border-slate-700 print:border-black w-8 py-1.5 font-bold bg-slate-700 text-white print:bg-slate-200 print:text-black">Full</th>
+                  <th className="border border-slate-700 print:border-black w-8 py-1.5 font-bold bg-emerald-700 text-white print:bg-emerald-200 print:text-black">1/2</th>
+                </tr>
+              </thead>
+
+              {/* Table Body Grouped by Department */}
+              <tbody>
+                {data.departments.map((deptGroup) => {
+                  return deptGroup.rows.map((row, rowIdx) => {
+                    const isFirstInDept = rowIdx === 0;
+
+                    return (
+                      <tr
+                        key={row.user_id}
+                        className="hover:bg-white/[0.04] transition-colors print:hover:bg-transparent"
+                      >
+                        {/* Department cell with rowSpan */}
+                        {isFirstInDept && (
+                          <td
+                            rowSpan={deptGroup.rows.length}
+                            className="border border-slate-700 print:border-black px-3 py-2 text-left font-bold text-white print:text-black bg-slate-900/90 print:bg-slate-50 align-middle"
+                          >
+                            <span className="block">{deptGroup.department}</span>
+                          </td>
+                        )}
+
+                        {/* Name Cell */}
+                        <td className="border border-slate-700 print:border-black px-3 py-2 text-left font-medium text-slate-200 print:text-black whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span>{row.name}</span>
+                            {row.status === 'perbantuan' && (
+                              <span
+                                className="no-print px-1.5 py-0.2 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-[9px] font-bold"
+                                title="Masa Perbantuan"
+                              >
+                                P
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Date cells */}
+                        {data.dateList.map((d) => {
+                          const cell = row.cells[d.date];
+                          const code = cell?.code;
+
+                          if (d.is_weekend) {
+                            return (
+                              <td
+                                key={d.date}
+                                className="border border-slate-700 print:border-black p-0 bg-amber-300/80 print:bg-yellow-300 text-slate-900"
+                              >
+                                {/* Yellow weekend column */}
+                              </td>
+                            );
+                          }
+
+                          return (
+                            <td
+                              key={d.date}
+                              onClick={() => openEditModal(row.user_id, row.name, d.date, cell)}
+                              className="border border-slate-700 print:border-black p-0 cursor-pointer hover:bg-white/10 transition-colors select-none font-bold text-xs"
+                              title={`${row.name} (${d.date}): ${code || 'Belum ada data'}. Klik untuk ubah.`}
+                            >
+                              {code === 'H' && (
+                                <span className="inline-block w-full py-1.5 text-white font-extrabold">H</span>
+                              )}
+                              {code === '1/2' && (
+                                <span className="inline-block w-full py-1.5 bg-emerald-600/90 text-white font-extrabold print:bg-emerald-300 print:text-black">
+                                  1/2
+                                </span>
+                              )}
+                              {code === 'I' && (
+                                <span className="inline-block w-full py-1.5 bg-sky-400 text-slate-950 font-extrabold print:bg-sky-300 print:text-black">
+                                  I
+                                </span>
+                              )}
+                              {code === 'S' && (
+                                <span className="inline-block w-full py-1.5 bg-amber-400 text-slate-950 font-extrabold print:bg-yellow-300 print:text-black">
+                                  S
+                                </span>
+                              )}
+                              {code === 'A' && (
+                                <span className="inline-block w-full py-1.5 bg-red-600 text-white font-extrabold print:bg-red-400">
+                                  A
+                                </span>
+                              )}
+                              {!code && <span className="text-slate-600 print:text-slate-300">-</span>}
+                            </td>
+                          );
+                        })}
+
+                        {/* Summary Counts */}
+                        <td className="border border-slate-700 print:border-black py-2 font-bold text-slate-200 print:text-black">
+                          {row.summary.H}
+                        </td>
+                        <td className="border border-slate-700 print:border-black py-2 font-bold text-slate-200 print:text-black">
+                          {row.summary.S}
+                        </td>
+                        <td className="border border-slate-700 print:border-black py-2 font-bold text-slate-200 print:text-black">
+                          {row.summary.I}
+                        </td>
+                        <td className="border border-slate-700 print:border-black py-2 font-bold text-slate-200 print:text-black">
+                          {row.summary.A}
+                        </td>
+                        <td className="border border-slate-700 print:border-black py-2 font-bold text-slate-200 print:text-black">
+                          {row.summary.Full}
+                        </td>
+                        <td className="border border-slate-700 print:border-black py-2 font-bold text-slate-200 print:text-black">
+                          {row.summary.Half}
+                        </td>
+
+                        {/* Keterangan Rinci Column */}
+                        <td className="border border-slate-700 print:border-black px-3 py-2 text-left text-[11px] text-slate-300 print:text-black font-normal">
+                          {row.notesList && row.notesList.length > 0 ? (
+                            <span className="line-clamp-2" title={row.notesList.join('; ')}>
+                              {row.notesList.join('; ')}
+                            </span>
+                          ) : (
+                            <span className="text-slate-600 print:text-transparent">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  });
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL QUICK EDIT CELL ATTENDANCE & NOTES */}
+      {editModal && editModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-card max-w-sm w-full p-6 animate-fade-in border-amber-500/40">
+            <h3 className="text-lg font-bold text-white mb-1">Update Status Absensi</h3>
+            <p className="text-slate-400 text-xs mb-4">
+              {editModal.userName} &bull; <strong className="text-amber-400">{formatDateID(editModal.date)}</strong>
+            </p>
+
+            <form onSubmit={handleSaveCell} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-2">
+                  Pilih Kode Kehadiran
+                </label>
+                <div className="grid grid-cols-5 gap-2">
+                  {[
+                    { code: 'H', label: 'Hadir', bg: 'bg-white text-slate-950 font-bold' },
+                    { code: '1/2', label: '1/2 Hari', bg: 'bg-emerald-600 text-white font-bold' },
+                    { code: 'I', label: 'Izin', bg: 'bg-sky-400 text-slate-950 font-bold' },
+                    { code: 'S', label: 'Sakit', bg: 'bg-amber-400 text-slate-950 font-bold' },
+                    { code: 'A', label: 'Alpa', bg: 'bg-red-600 text-white font-bold' },
+                  ].map((item) => (
+                    <button
+                      type="button"
+                      key={item.code}
+                      onClick={() =>
+                        setEditModal({
+                          ...editModal,
+                          currentCode: editModal.currentCode === item.code ? null : (item.code as AttendanceCode),
+                        })
+                      }
+                      className={`h-11 rounded-lg flex flex-col items-center justify-center text-xs transition-all border ${
+                        editModal.currentCode === item.code
+                          ? `${item.bg} ring-2 ring-white border-transparent shadow-lg scale-105`
+                          : 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10'
+                      }`}
+                    >
+                      <span className="font-extrabold">{item.code}</span>
+                      <span className="text-[9px] opacity-80">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300">
+                  Keterangan Rinci (Opsional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={editModal.currentNotes}
+                  onChange={(e) => setEditModal({ ...editModal, currentNotes: e.target.value })}
+                  placeholder="Misal: Masuk kuliah dan ada rapat prodi / Pembekalan Pra LAPS..."
+                  className="input-field text-xs w-full resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setEditModal(null)}
+                  className="btn-secondary text-xs"
+                  disabled={isSavingCell}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingCell}
+                  className="btn-primary text-xs flex items-center gap-1.5"
+                >
+                  {isSavingCell ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  Simpan Status
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
