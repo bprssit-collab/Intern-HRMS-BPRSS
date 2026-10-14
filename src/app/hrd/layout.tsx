@@ -19,20 +19,24 @@ export default async function HrdLayout({
 }) {
   const session = await getSession();
 
-  if (!session || session.role !== 'hrd') {
+  if (!session || (session.role !== 'hrd' && session.role !== 'super_admin')) {
     redirect('/');
   }
+
+  const isSuperAdmin = session.role === 'super_admin';
 
   return (
     <div className="flex h-screen bg-slate-950 overflow-hidden">
       
-      {/* Desktop Sidebar (HRD is primarily desktop) */}
+      {/* Desktop Sidebar (HRD & Super Admin) */}
       <aside className="w-64 bg-slate-900 border-r border-white/5 flex flex-col hidden md:flex shrink-0">
         <div className="h-16 flex items-center px-6 border-b border-white/5">
           <Building2 className="w-6 h-6 text-emerald-400 mr-2" />
           <div className="flex flex-col">
             <span className="font-bold text-white text-sm tracking-wide">BPR Sehat Sejahtera</span>
-            <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">HRD Portal</span>
+            <span className={`text-[10px] font-semibold uppercase tracking-wider ${isSuperAdmin ? 'text-purple-400' : 'text-emerald-400'}`}>
+              {isSuperAdmin ? '⚡ Super Admin Portal' : 'HRD Portal'}
+            </span>
           </div>
         </div>
         
@@ -76,7 +80,14 @@ export default async function HrdLayout({
 
         <div className="p-4 border-t border-white/5 flex items-center justify-between bg-slate-900/60">
           <div className="flex flex-col truncate pr-2">
-            <span className="text-sm font-medium text-white truncate">{session.name}</span>
+            <div className="flex items-center gap-1.5 truncate">
+              <span className="text-sm font-medium text-white truncate">{session.name}</span>
+              {isSuperAdmin && (
+                <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-500/40 rounded text-[9px] font-bold">
+                  SUPER
+                </span>
+              )}
+            </div>
             <span className="text-xs text-slate-500 truncate">{session.email}</span>
           </div>
           <LogoutButton />
@@ -89,7 +100,9 @@ export default async function HrdLayout({
         <header className="md:hidden h-16 bg-slate-900 border-b border-white/5 flex items-center justify-between px-4 shrink-0">
           <div className="flex items-center">
             <Building2 className="w-5 h-5 text-emerald-400 mr-2" />
-            <span className="font-bold text-white text-sm">BPR Sehat Sejahtera (HRD)</span>
+            <span className="font-bold text-white text-sm">
+              BPR Sehat Sejahtera ({isSuperAdmin ? 'Super Admin' : 'HRD'})
+            </span>
           </div>
           <LogoutButton />
         </header>

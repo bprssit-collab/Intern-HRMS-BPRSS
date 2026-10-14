@@ -30,7 +30,7 @@ export default function LoginPage() {
       }
 
       // Hard redirect based on role to ensure cookies are sent on mobile devices
-      if (json.data.role === 'hrd') {
+      if (json.data.role === 'hrd' || json.data.role === 'super_admin') {
         window.location.href = '/hrd/dashboard';
       } else {
         window.location.href = '/intern/dashboard';
@@ -106,17 +106,28 @@ export default function LoginPage() {
         
         <div className="mt-8 pt-6 border-t border-white/5 text-center text-xs text-slate-400 space-y-2">
           <p className="font-semibold text-slate-300">Akun Demo (Klik untuk Isi Otomatis):</p>
-          <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('superadmin@bprsehat.com');
+                setPassword('admin123');
+              }}
+              className="px-2.5 py-2 bg-purple-500/10 hover:bg-purple-500/20 hover:border-purple-500/40 border border-purple-500/30 rounded-lg text-left transition-all group"
+            >
+              <span className="block font-semibold text-purple-300 group-hover:underline">⚡ Super Admin</span>
+              <span className="text-[10px] text-slate-400 truncate block">superadmin@bpr...</span>
+            </button>
             <button
               type="button"
               onClick={() => {
                 setEmail('hrd@bprsehat.com');
                 setPassword('admin123');
               }}
-              className="px-3 py-2 bg-white/5 hover:bg-emerald-500/20 hover:border-emerald-500/40 border border-white/10 rounded-lg text-left transition-all group"
+              className="px-2.5 py-2 bg-white/5 hover:bg-emerald-500/20 hover:border-emerald-500/40 border border-white/10 rounded-lg text-left transition-all group"
             >
               <span className="block font-medium text-emerald-400 group-hover:underline">👑 Admin HRD</span>
-              <span className="text-[11px] text-slate-400">hrd@bprsehat.com</span>
+              <span className="text-[10px] text-slate-400 truncate block">hrd@bprsehat...</span>
             </button>
             <button
               type="button"
@@ -124,10 +135,10 @@ export default function LoginPage() {
                 setEmail('budi@intern.bprsehat.com');
                 setPassword('intern123');
               }}
-              className="px-3 py-2 bg-white/5 hover:bg-blue-500/20 hover:border-blue-500/40 border border-white/10 rounded-lg text-left transition-all group"
+              className="px-2.5 py-2 bg-white/5 hover:bg-blue-500/20 hover:border-blue-500/40 border border-white/10 rounded-lg text-left transition-all group"
             >
               <span className="block font-medium text-blue-400 group-hover:underline">🎓 Intern Budi</span>
-              <span className="text-[11px] text-slate-400">budi@intern...</span>
+              <span className="text-[10px] text-slate-400 truncate block">budi@intern...</span>
             </button>
           </div>
         </div>

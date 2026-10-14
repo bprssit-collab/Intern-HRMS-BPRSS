@@ -16,6 +16,9 @@ import {
   Check,
   Download,
   FileSpreadsheet,
+  Trash2,
+  CheckCircle,
+  X,
 } from 'lucide-react';
 import { formatDateID } from '@/lib/utils';
 import type { AttendanceRecapData, AttendanceCode, Batch } from '@/types';
@@ -28,6 +31,14 @@ export default function AttendanceRecapPage() {
   const [endDate, setEndDate] = useState('2026-10-11');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Super Admin state & feedback
+  const [currentUser, setCurrentUser] = useState<{ id: string; role: string; name: string } | null>(null);
+  const [todayModalOpen, setTodayModalOpen] = useState(false);
+  const [todayAttendances, setTodayAttendances] = useState<any[]>([]);
+  const [isLoadingToday, setIsLoadingToday] = useState(false);
+  const [isDeletingAttendance, setIsDeletingAttendance] = useState(false);
+  const [recapFeedback, setRecapFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Edit Cell Modal State
   const [editModal, setEditModal] = useState<{
@@ -71,7 +82,70 @@ export default function AttendanceRecapPage() {
 
   useEffect(() => {
     fetchRecap();
+    // Fetch Current User
+    fetch('/api/auth/me')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.user) {
+          setCurrentUser(json.user);
+        }
+      })
+      .catch((err) => console.error('Error fetching current user:', err));
   }, []);
+
+  const fetchTodayAttendances = async () => {
+    setIsLoadingToday(true);
+    try {
+      const res = await fetch('/api/admin/reset-attendance-today');
+      const json = await res.json();
+      if (json.success) {
+        setTodayAttendances(json.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching today attendances:', err);
+    } finally {
+      setIsLoadingToday(false);
+    }
+  };
+
+  const handleDeleteAttendance = async (userId: string, date?: string, userName?: string) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const targetDate = date || todayStr;
+    const confirmMessage = `Apakah Anda yakin ingin MENGHAPUS data absensi ${
+      userName ? `untuk "${userName}"` : ''
+    } pada tanggal ${targetDate}?\n\nSetelah dihapus, anak magang dapat melakukan absen ulang pada hari tersebut.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setIsDeletingAttendance(true);
+    setRecapFeedback(null);
+
+    try {
+      const res = await fetch('/api/admin/reset-attendance-today', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, date: targetDate }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Gagal menghapus data absensi.');
+      }
+
+      setRecapFeedback({ type: 'success', text: json.message });
+      if (editModal) setEditModal(null);
+
+      // Refresh both recap matrix and today attendances
+      await fetchRecap(selectedBatchId, startDate, endDate);
+      if (todayModalOpen) {
+        await fetchTodayAttendances();
+      }
+    } catch (err: any) {
+      setRecapFeedback({ type: 'error', text: err.message });
+    } finally {
+      setIsDeletingAttendance(false);
+    }
+  };
 
   const handleFilterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -222,7 +296,22 @@ export default function AttendanceRecapPage() {
               Tampilan matriks kehadiran horizontal sesuai format resmi PT BPR Sehat Sejahtera.
             </p>
           </div>
-          <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+            {/* Super Admin Quick Action */}
+            {currentUser?.role === 'super_admin' && (
+              <button
+                onClick={() => {
+                  setTodayModalOpen(true);
+                  fetchTodayAttendances();
+                }}
+                className="btn-secondary flex items-center gap-1.5 text-sm border-rose-500/40 text-rose-300 hover:bg-rose-500/10"
+                title="Kelola & Hapus Absensi Hari Berjalan (Super Admin)"
+              >
+                <Trash2 className="w-4 h-4 text-rose-400" />
+                Hapus Absen Hari Ini
+              </button>
+            )}
+
             <button
               onClick={handleExportCSV}
               disabled={!data || isLoading}
@@ -242,6 +331,29 @@ export default function AttendanceRecapPage() {
             </button>
           </div>
         </div>
+
+        {recapFeedback && (
+          <div
+            className={`alert ${
+              recapFeedback.type === 'success' ? 'alert-success' : 'alert-error'
+            } flex items-center justify-between`}
+          >
+            <div className="flex items-center gap-2 text-sm">
+              {recapFeedback.type === 'success' ? (
+                <CheckCircle className="w-5 h-5 shrink-0 text-emerald-400" />
+              ) : (
+                <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
+              )}
+              <span>{recapFeedback.text}</span>
+            </div>
+            <button
+              onClick={() => setRecapFeedback(null)}
+              className="text-xs text-slate-400 hover:text-white underline ml-4"
+            >
+              Tutup
+            </button>
+          </div>
+        )}
 
         {/* Filter Card */}
         <div className="glass-card p-4">
@@ -626,25 +738,150 @@ export default function AttendanceRecapPage() {
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setEditModal(null)}
-                  className="btn-secondary text-xs"
-                  disabled={isSavingCell}
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingCell}
-                  className="btn-primary text-xs flex items-center gap-1.5"
-                >
-                  {isSavingCell ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  Simpan Status
-                </button>
+              <div className="flex items-center justify-between gap-2 pt-3 border-t border-white/10">
+                {/* Super Admin: Delete today's attendance record */}
+                {currentUser?.role === 'super_admin' &&
+                editModal.date === new Date().toISOString().split('T')[0] &&
+                editModal.currentCode !== null ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteAttendance(editModal.userId, editModal.date, editModal.userName)}
+                    disabled={isSavingCell || isDeletingAttendance}
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    title="Hapus rekaman absensi hari ini agar intern dapat absen ulang"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Hapus Absen Hari Ini</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditModal(null)}
+                    className="btn-secondary text-xs"
+                    disabled={isSavingCell || isDeletingAttendance}
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingCell || isDeletingAttendance}
+                    className="btn-primary text-xs flex items-center gap-1.5"
+                  >
+                    {isSavingCell ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    Simpan Status
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KELOLA & HAPUS ABSENSI HARI INI (SUPER ADMIN ONLY) */}
+      {todayModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-card max-w-2xl w-full p-6 animate-fade-in border-rose-500/40 shadow-2xl shadow-rose-950/40">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-lg bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    Kelola Absensi Hari Berjalan
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                      SUPER ADMIN
+                    </span>
+                  </h3>
+                  <p className="text-slate-400 text-xs">
+                    Tanggal:{' '}
+                    <strong className="text-cyan-300">
+                      {formatDateID(new Date().toISOString().split('T')[0])}
+                    </strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setTodayModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-slate-300 text-xs mb-4">
+              Daftar anak magang yang telah mencatatkan absensi hari ini. Menghapus data absensi memungkinkan anak magang bersangkutan untuk <strong>melakukan absen ulang dari awal</strong> (misal terjadi kesalahan foto wajah, salah jam, atau keluhan check-in).
+            </p>
+
+            {isLoadingToday ? (
+              <div className="py-12 text-center text-slate-400">
+                <Loader2 className="w-7 h-7 animate-spin mx-auto mb-2 text-rose-400" />
+                <p className="text-xs">Memuat data absensi hari ini...</p>
+              </div>
+            ) : todayAttendances.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 bg-white/[0.02] rounded-lg border border-white/5">
+                <CalendarCheck className="w-8 h-8 mx-auto mb-2 text-slate-600" />
+                <p className="text-xs font-medium">Belum ada anak magang yang melakukan absensi hari ini.</p>
+              </div>
+            ) : (
+              <div className="max-h-80 overflow-y-auto rounded-lg border border-white/10 divide-y divide-white/5">
+                {todayAttendances.map((att: any) => (
+                  <div
+                    key={att.id}
+                    className="p-3.5 flex items-center justify-between gap-3 hover:bg-white/[0.02] transition-colors"
+                  >
+                    <div>
+                      <div className="font-semibold text-white text-sm flex items-center gap-2">
+                        {att.user_name}
+                        <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                          {att.department}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-400 font-mono mt-0.5">
+                        {att.user_email}
+                      </div>
+                      <div className="text-[11px] text-slate-300 mt-1 flex items-center gap-3">
+                        <span>Masuk: <strong className="text-emerald-400 font-mono">{att.check_in_time || '-'}</strong></span>
+                        <span>Pulang: <strong className="text-amber-400 font-mono">{att.check_out_time || '-'}</strong></span>
+                        <span>Status: <strong className="text-cyan-300 uppercase">{att.status || att.attendance_status || '-'}</strong></span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteAttendance(att.user_id, att.date, att.user_name)}
+                      disabled={isDeletingAttendance}
+                      className="px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                      Hapus Absen
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-between items-center pt-4 mt-4 border-t border-white/10">
+              <button
+                type="button"
+                onClick={fetchTodayAttendances}
+                disabled={isLoadingToday}
+                className="text-xs text-slate-400 hover:text-white underline"
+              >
+                Segarkan Daftar
+              </button>
+              <button
+                type="button"
+                onClick={() => setTodayModalOpen(false)}
+                className="btn-secondary text-xs"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}

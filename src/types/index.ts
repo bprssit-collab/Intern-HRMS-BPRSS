@@ -6,7 +6,7 @@
 // DATABASE ENTITY TYPES
 // ============================================================
 
-export type UserRole = 'intern' | 'hrd';
+export type UserRole = 'intern' | 'hrd' | 'super_admin';
 export type InternStatus = 'active' | 'perbantuan' | 'completed';
 
 export interface User {

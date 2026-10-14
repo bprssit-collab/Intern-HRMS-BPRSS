@@ -79,11 +79,21 @@ export function getSessionCookieOptions(token: string) {
 
 /**
  * Validates that the current session belongs to the required role.
- * Use this in API routes and server components.
+ * Super Admin automatically inherits all HRD permissions.
  */
-export async function requireRole(requiredRole: 'intern' | 'hrd'): Promise<SessionUser | null> {
+export async function requireRole(
+  requiredRole: import('@/types').UserRole | import('@/types').UserRole[]
+): Promise<SessionUser | null> {
   const session = await getSession();
-  if (!session || session.role !== requiredRole) {
+  if (!session) return null;
+
+  const allowed = Array.isArray(requiredRole) ? [...requiredRole] : [requiredRole];
+  // super_admin automatically satisfies 'hrd' requirements
+  if (allowed.includes('hrd') && !allowed.includes('super_admin')) {
+    allowed.push('super_admin');
+  }
+
+  if (!allowed.includes(session.role)) {
     return null;
   }
   return session;

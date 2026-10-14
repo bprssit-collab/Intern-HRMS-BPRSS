@@ -14,6 +14,7 @@ import {
   Loader2,
   ScanFace,
   Building,
+  Trash2,
 } from 'lucide-react';
 import type { User, Batch } from '@/types';
 
@@ -53,6 +54,12 @@ export default function InternsPage() {
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
 
+  // Super Admin state & feedback
+  const [currentUser, setCurrentUser] = useState<{ id: string; role: string; name: string } | null>(null);
+  const [resetFaceTarget, setResetFaceTarget] = useState<InternItem | null>(null);
+  const [isResettingFace, setIsResettingFace] = useState(false);
+  const [resetFeedback, setResetFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingIntern, setEditingIntern] = useState<Partial<InternItem> | null>(null);
@@ -79,7 +86,37 @@ export default function InternsPage() {
 
   useEffect(() => {
     fetchInterns();
+    fetch('/api/auth/me')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) setCurrentUser(json.data);
+      })
+      .catch(() => {});
   }, []);
+
+  const handleConfirmResetFace = async () => {
+    if (!resetFaceTarget) return;
+    setIsResettingFace(true);
+    setResetFeedback(null);
+    try {
+      const res = await fetch('/api/admin/reset-face', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: resetFaceTarget.id }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Gagal mereset data wajah.');
+      }
+      setResetFeedback({ type: 'success', text: json.message });
+      setResetFaceTarget(null);
+      await fetchInterns();
+    } catch (err: any) {
+      setResetFeedback({ type: 'error', text: err.message });
+    } finally {
+      setIsResettingFace(false);
+    }
+  };
 
   const openCreateModal = () => {
     setEditingIntern({
@@ -179,6 +216,29 @@ export default function InternsPage() {
           Tambah Anak Magang
         </button>
       </div>
+
+      {resetFeedback && (
+        <div
+          className={`alert ${
+            resetFeedback.type === 'success' ? 'alert-success' : 'alert-error'
+          } flex items-center justify-between`}
+        >
+          <div className="flex items-center gap-2 text-sm">
+            {resetFeedback.type === 'success' ? (
+              <CheckCircle className="w-5 h-5 shrink-0 text-emerald-400" />
+            ) : (
+              <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
+            )}
+            <span>{resetFeedback.text}</span>
+          </div>
+          <button
+            onClick={() => setResetFeedback(null)}
+            className="text-xs text-slate-400 hover:text-white underline ml-4"
+          >
+            Tutup
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="alert alert-error">
@@ -297,6 +357,17 @@ export default function InternsPage() {
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          {/* Super Admin: Reset / Hapus Wajah */}
+                          {currentUser?.role === 'super_admin' && intern.has_face && (
+                            <button
+                              onClick={() => setResetFaceTarget(intern)}
+                              title="Hapus / Reset Data Wajah (Super Admin)"
+                              className="px-2 py-1 rounded text-xs transition-colors border bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border-rose-500/30 flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                              <span className="hidden sm:inline">Hapus Wajah</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => handleTogglePerbantuan(intern)}
                             title={
@@ -445,6 +516,56 @@ export default function InternsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Konfirmasi Hapus / Reset Wajah (Super Admin Only) */}
+      {resetFaceTarget && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-card max-w-md w-full p-6 animate-fade-in border-rose-500/50 shadow-2xl shadow-rose-950/50">
+            <div className="w-12 h-12 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-4">
+              <ScanFace className="w-6 h-6" />
+            </div>
+            <h2 className="text-lg font-bold text-white mb-1">
+              Reset Data Wajah: {resetFaceTarget.name}?
+            </h2>
+            <p className="text-slate-300 text-xs leading-relaxed mb-4">
+              Tindakan ini akan <strong className="text-rose-300">menghapus data biometrik wajah (128D Face Descriptor)</strong> milik{' '}
+              <span className="text-white font-semibold">{resetFaceTarget.name}</span> ({resetFaceTarget.email}).
+            </p>
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] mb-5">
+              ⚠️ Setelah dihapus, anak magang harus melakukan registrasi/rekam ulang wajah saat hendak melakukan absensi berikutnya.
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setResetFaceTarget(null)}
+                className="btn-secondary text-sm"
+                disabled={isResettingFace}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmResetFace}
+                disabled={isResettingFace}
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-medium text-sm flex items-center gap-2 transition-colors disabled:opacity-50"
+              >
+                {isResettingFace ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Menghapus...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Ya, Hapus Data Wajah
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

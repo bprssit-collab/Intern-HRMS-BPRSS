@@ -20,7 +20,7 @@ export interface DatabaseSchema {
     name: string;
     email: string;
     password_hash: string;
-    role: 'intern' | 'hrd';
+    role: 'intern' | 'hrd' | 'super_admin';
     department?: string;
     batch_id?: string;
     status?: 'active' | 'perbantuan' | 'completed';
@@ -107,6 +107,17 @@ const INITIAL_DATA: DatabaseSchema = {
     },
   ],
   users: [
+    {
+      id: '00000000-0000-0000-0000-000000000099',
+      name: 'Super Admin',
+      email: 'superadmin@bprsehat.com',
+      password_hash: '$2b$10$0FFJ6xrtBF8LwoglbdToQ.Cs2Lpzb2fGtpT.MNQD1FAaqWFbAJOp2', // admin123
+      role: 'super_admin',
+      department: 'IT & Management',
+      status: 'active',
+      face_descriptor: null,
+      created_at: new Date().toISOString(),
+    },
     {
       id: '11111111-1111-1111-1111-111111111111',
       name: 'Admin HRD',
