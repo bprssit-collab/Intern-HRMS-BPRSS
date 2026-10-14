@@ -66,7 +66,7 @@ export interface LiveDetectionResult {
   detected: boolean;
   box?: { x: number; y: number; width: number; height: number };
   landmarks?: { x: number; y: number }[];
-  status: 'searching' | 'too_far' | 'too_close' | 'off_center' | 'optimal';
+  status: 'searching' | 'too_far' | 'too_close' | 'off_center' | 'optimal' | 'not_frontal';
   message: string;
   distanceScore: number; // 0 (far) .. 50 (ideal) .. 100 (close)
   faceRatio: number;
@@ -74,7 +74,7 @@ export interface LiveDetectionResult {
 
 /**
  * Fast real-time face detection for live video stream guidance.
- * Analyzes face presence, position, and distance ratio relative to optimal viewport bounds.
+ * Analyzes face presence, frontal angle/pose, position, and distance ratio.
  */
 export async function detectLiveFace(
   video: HTMLVideoElement
@@ -114,11 +114,50 @@ export async function detectLiveFace(
     Math.max(0, Math.round(((faceRatio - 0.14) / 0.52) * 100))
   );
 
+  const landmarks = detection.landmarks.positions.map((p: any) => ({
+    x: p.x,
+    y: p.y,
+  }));
+
+  // Analyze frontal face pose (Yaw / Sideways turning & Roll / Head tilt) using 68 facial landmarks
+  const pt0 = landmarks[0];   // Left jaw edge
+  const pt16 = landmarks[16]; // Right jaw edge
+  const pt27 = landmarks[27]; // Nose bridge top
+  const pt30 = landmarks[30]; // Nose tip
+  const pt36 = landmarks[36]; // Left eye outer corner
+  const pt39 = landmarks[39]; // Left eye inner corner
+  const pt42 = landmarks[42]; // Right eye inner corner
+  const pt45 = landmarks[45]; // Right eye outer corner
+
+  // Horizontal symmetry: nose tip relative to both jaw edges
+  const distToLeftJaw = Math.abs(pt30.x - pt0.x);
+  const distToRightJaw = Math.abs(pt16.x - pt30.x);
+  const jawRatio = distToLeftJaw / (distToRightJaw || 1);
+
+  // Inner eye corner symmetry relative to nose bridge
+  const distToLeftEye = Math.abs(pt27.x - pt39.x);
+  const distToRightEye = Math.abs(pt42.x - pt27.x);
+  const eyeNoseRatio = distToLeftEye / (distToRightEye || 1);
+
+  // Head tilt (Roll angle)
+  const eyeDeltaY = Math.abs(pt36.y - pt45.y);
+  const eyeDistX = Math.abs(pt45.x - pt36.x) || 1;
+  const rollRatio = eyeDeltaY / eyeDistX;
+
+  // Detect if user is turning head sideways (tengok samping) or severely tilting head
+  const isSideways = jawRatio < 0.50 || jawRatio > 2.0 || eyeNoseRatio < 0.35 || eyeNoseRatio > 2.85;
+  const isTilted = rollRatio > 0.30;
+
   let status: LiveDetectionResult['status'] = 'optimal';
   let message = 'Jarak & Posisi Wajah Optimal!';
 
-  // Highly flexible thresholds tailored for smartphone selfie distance (25cm - 70cm)
-  if (faceRatio < 0.16) {
+  if (isSideways) {
+    status = 'not_frontal';
+    message = 'Hadapkan wajah lurus ke depan kamera';
+  } else if (isTilted) {
+    status = 'not_frontal';
+    message = 'Posisikan kepala tegak (jangan miring)';
+  } else if (faceRatio < 0.16) {
     status = 'too_far';
     message = 'Wajah terlalu jauh — silakan dekatkan kamera';
   } else if (faceRatio > 0.70) {
@@ -128,11 +167,6 @@ export async function detectLiveFace(
     status = 'off_center';
     message = 'Posisikan wajah ke arah tengah lingkaran';
   }
-
-  const landmarks = detection.landmarks.positions.map((p: any) => ({
-    x: p.x,
-    y: p.y,
-  }));
 
   return {
     detected: true,

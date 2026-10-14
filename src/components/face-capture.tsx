@@ -19,7 +19,8 @@ import {
   Minimize2,
   Move,
   Check,
-  Zap
+  Zap,
+  Eye
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -234,23 +235,31 @@ export function FaceCapture({
                 !successRef.current
               ) {
                 optimalDurationRef.current += INTERVAL_MS;
-                const TARGET_HOLD_MS = 1200; // 1.2s steady hold in optimal zone
 
-                if (optimalDurationRef.current >= TARGET_HOLD_MS) {
+                // Calibrated comfortable pacing:
+                // 0 - 600ms: stabilization period (user settles expression & posture)
+                // 600ms - 1400ms: Count 3 (800ms)
+                // 1400ms - 2200ms: Count 2 (800ms)
+                // 2200ms - 3000ms: Count 1 (800ms)
+                // >= 3000ms: Trigger capture!
+                const STABILIZE_MS = 600;
+                const STEP_MS = 800;
+                const TOTAL_HOLD_MS = STABILIZE_MS + (STEP_MS * 3); // 3.0s total
+
+                if (optimalDurationRef.current < STABILIZE_MS) {
+                  setAutoCaptureCountdown(null);
+                } else if (optimalDurationRef.current >= TOTAL_HOLD_MS) {
                   hasCapturedRef.current = true;
                   setAutoCaptureCountdown(null);
                   handleCaptureRef.current();
                 } else {
-                  // Visual countdown: 3 -> 2 -> 1
-                  const remainingSec = Math.max(
-                    1, 
-                    Math.ceil((TARGET_HOLD_MS - optimalDurationRef.current) / 400)
-                  );
-                  setAutoCaptureCountdown(remainingSec);
+                  const elapsedAfterStabilize = optimalDurationRef.current - STABILIZE_MS;
+                  const remaining = 3 - Math.floor(elapsedAfterStabilize / STEP_MS);
+                  setAutoCaptureCountdown(Math.max(1, Math.min(3, remaining)));
                 }
               }
             } else {
-              // Reset countdown immediately if face slips out of optimal bounds
+              // Reset countdown immediately if face slips out of optimal bounds or turns sideways
               optimalDurationRef.current = 0;
               setAutoCaptureCountdown(null);
             }
@@ -364,23 +373,6 @@ export function FaceCapture({
     }
   };
 
-  // Helper styles based on live guidance state
-  const getStatusColor = () => {
-    if (success) return 'text-emerald-400 border-emerald-500';
-    switch (liveState.status) {
-      case 'optimal':
-        return 'text-emerald-400 border-emerald-500 shadow-emerald-500/40';
-      case 'too_far':
-        return 'text-amber-400 border-amber-500 shadow-amber-500/30';
-      case 'too_close':
-        return 'text-orange-400 border-orange-500 shadow-orange-500/30';
-      case 'off_center':
-        return 'text-yellow-400 border-yellow-500 shadow-yellow-500/30';
-      default:
-        return 'text-cyan-400 border-cyan-500 shadow-cyan-500/20';
-    }
-  };
-
   return (
     <div className="flex flex-col items-center w-full max-w-md mx-auto animate-fade-in">
       <div className="w-full flex items-center justify-between mb-3 px-1">
@@ -399,55 +391,6 @@ export function FaceCapture({
           </div>
         )}
       </div>
-      
-      {/* Real-time Distance Meter Indicator Bar */}
-      {!success && !isInitializing && !error && (
-        <div className="w-full mb-3 bg-slate-900/80 border border-white/10 rounded-xl p-2.5 backdrop-blur-md">
-          <div className="flex items-center justify-between text-[11px] font-medium text-slate-400 mb-1.5 px-1">
-            <span className={cn(liveState.status === 'too_far' && 'text-amber-400 font-bold flex items-center gap-0.5')}>
-              <Maximize2 className="w-3 h-3 inline" /> Terlalu Jauh
-            </span>
-            <span className={cn(
-              "px-2 py-0.5 rounded-full text-[10px] tracking-wider uppercase font-bold",
-              liveState.status === 'optimal' 
-                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                : "text-slate-400"
-            )}>
-              {liveState.status === 'optimal' ? '✓ Jarak Ideal' : 'Panduan Jarak'}
-            </span>
-            <span className={cn(liveState.status === 'too_close' && 'text-orange-400 font-bold flex items-center gap-0.5')}>
-              Terlalu Dekat <Minimize2 className="w-3 h-3 inline" />
-            </span>
-          </div>
-
-          {/* Meter track */}
-          <div className="relative h-2 w-full bg-slate-800 rounded-full overflow-hidden flex items-center">
-            {/* Zones: Amber left (22%), Green center (56%), Orange right (22%) */}
-            <div className="w-[22%] h-full bg-amber-500/20 border-r border-slate-700" />
-            <div className="w-[56%] h-full bg-emerald-500/30 border-r border-slate-700 relative">
-              <div className="absolute inset-0 bg-emerald-400/20 animate-pulse" />
-            </div>
-            <div className="w-[22%] h-full bg-orange-500/20" />
-
-            {/* Dynamic cursor needle indicator */}
-            {liveState.detected && (
-              <div 
-                className={cn(
-                  "absolute top-0 bottom-0 w-3 rounded-full shadow-lg transform -translate-x-1/2 transition-all duration-150",
-                  liveState.status === 'optimal'
-                    ? "bg-emerald-400 shadow-emerald-400/80 scale-125"
-                    : liveState.status === 'too_far'
-                    ? "bg-amber-400 shadow-amber-400/80"
-                    : liveState.status === 'too_close'
-                    ? "bg-orange-400 shadow-orange-400/80"
-                    : "bg-yellow-400 shadow-yellow-400/80"
-                )}
-                style={{ left: `${Math.min(95, Math.max(5, liveState.distanceScore))}%` }}
-              />
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Camera Viewport with Biometric Face Placeholder Guide */}
       <div className="camera-viewport mb-4 relative overflow-hidden rounded-2xl border-2 border-white/10 shadow-2xl bg-black">
@@ -519,6 +462,8 @@ export function FaceCapture({
                   "absolute inset-0 rounded-[50%] border-2 transition-all duration-300",
                   liveState.status === 'optimal'
                     ? "border-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.5)] animate-pulse"
+                    : liveState.status === 'not_frontal'
+                    ? "border-amber-400 border-dashed shadow-[0_0_15px_rgba(245,158,11,0.4)]"
                     : liveState.status === 'too_far'
                     ? "border-amber-400 border-dashed shadow-[0_0_15px_rgba(245,158,11,0.4)]"
                     : liveState.status === 'too_close'
@@ -641,6 +586,8 @@ export function FaceCapture({
                   "px-3.5 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md border shadow-lg flex items-center gap-2 max-w-[90%] truncate transition-all duration-200",
                   liveState.status === 'optimal'
                     ? "bg-emerald-950/90 text-emerald-300 border-emerald-500/60 shadow-emerald-900/40"
+                    : liveState.status === 'not_frontal'
+                    ? "bg-amber-950/90 text-amber-200 border-amber-500/60 shadow-amber-900/40"
                     : liveState.status === 'too_far'
                     ? "bg-amber-950/90 text-amber-200 border-amber-500/60 shadow-amber-900/40"
                     : liveState.status === 'too_close'
@@ -652,6 +599,8 @@ export function FaceCapture({
               >
                 {liveState.status === 'optimal' ? (
                   <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : liveState.status === 'not_frontal' ? (
+                  <Eye className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
                 ) : liveState.status === 'too_far' ? (
                   <Maximize2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 ) : liveState.status === 'too_close' ? (
