@@ -391,22 +391,12 @@ export function FaceCapture({
           </span>
         </h2>
         
-        {/* Auto capture toggle button */}
+        {/* Auto capture active badge */}
         {!success && (
-          <button
-            type="button"
-            onClick={() => setAutoCaptureEnabled(prev => !prev)}
-            className={cn(
-              "text-xs px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 font-medium",
-              autoCaptureEnabled 
-                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" 
-                : "bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200"
-            )}
-            title="Otomatis mengambil foto saat wajah berada di jarak optimal"
-          >
-            <Sparkles className="w-3 h-3" />
-            <span>Auto: {autoCaptureEnabled ? 'ON' : 'OFF'}</span>
-          </button>
+          <div className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 font-semibold">
+            <Sparkles className="w-3 h-3 text-emerald-400" />
+            <span>Auto Capture Aktif</span>
+          </div>
         )}
       </div>
       
@@ -727,49 +717,36 @@ export function FaceCapture({
         </div>
       )}
       
-      {/* Action Buttons */}
+      {/* Action Area: 100% Pure Automatic Capture */}
       {success ? (
         <button 
           type="button" 
           onClick={retry}
           className="btn-secondary w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold"
         >
-          <RefreshCcw className="w-4 h-4" /> Ambil Foto Lagi
+          <RefreshCcw className="w-4 h-4" /> Pindai Wajah Lagi
         </button>
       ) : (
         <div className="w-full space-y-2.5">
-          <button 
-            type="button" 
-            onClick={handleCapture}
-            disabled={isInitializing || isProcessing || !streamRef.current}
-            className={cn(
-              "btn-primary w-full flex items-center justify-center gap-2 py-3.5 text-base rounded-xl font-bold shadow-xl transition-all disabled:opacity-50",
-              liveState.status === 'optimal'
-                ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-emerald-900/50"
-                : "bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 border border-white/10"
-            )}
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Memproses Wajah...</span>
-              </>
+          {/* Automatic capture status banner */}
+          <div className={cn(
+            "w-full p-3.5 rounded-xl border text-center transition-all duration-300",
+            liveState.status === 'optimal'
+              ? "bg-emerald-950/60 border-emerald-500/50 shadow-lg shadow-emerald-950/50"
+              : "bg-slate-900/60 border-white/10"
+          )}>
+            {liveState.status === 'optimal' ? (
+              <div className="flex items-center justify-center gap-2 text-emerald-300 font-bold text-sm">
+                <Sparkles className="w-4 h-4 text-emerald-400 animate-spin" />
+                <span>Posisi Sempurna! Otomatis mengambil foto...</span>
+              </div>
             ) : (
-              <>
-                <Camera className="w-5 h-5" />
-                <span>{buttonText}</span>
-              </>
+              <div className="flex items-center justify-center gap-2 text-slate-300 text-xs font-medium">
+                <Zap className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span>Posisikan wajah di lingkaran hingga hijau. Foto akan otomatis diambil tanpa menekan tombol.</span>
+              </div>
             )}
-          </button>
-
-          {/* Quick tips */}
-          <p className="text-[11px] text-center text-slate-400">
-            {autoCaptureEnabled ? (
-              <span>💡 Wajah di lingkaran hijau otomatis terfoto dalam 2 detik</span>
-            ) : (
-              <span>💡 Posisikan wajah di lingkaran panduan lalu tekan tombol di atas</span>
-            )}
-          </p>
+          </div>
           
           {/* Fallback simulation button for testing if webcam is unavailable */}
           {(!streamRef.current || error) && !isInitializing && (
