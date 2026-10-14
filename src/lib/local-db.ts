@@ -111,7 +111,7 @@ const INITIAL_DATA: DatabaseSchema = {
       id: '00000000-0000-0000-0000-000000000099',
       name: 'Super Admin',
       email: 'superadmin@bprsehat.com',
-      password_hash: '$2b$10$0FFJ6xrtBF8LwoglbdToQ.Cs2Lpzb2fGtpT.MNQD1FAaqWFbAJOp2', // admin123
+      password_hash: '$2b$10$iyo1ft6DWz2EphSgQ1xmc.vHCb18X8DXc4QhKd0QD7K1bS5tFF4v2', // admin123
       role: 'super_admin',
       department: 'IT & Management',
       status: 'active',

@@ -157,6 +157,11 @@ body {
   outline: none;
 }
 
+.input-field.has-icon,
+.input-with-icon {
+  padding-left: 2.75rem !important;
+}
+
 .input-field:focus {
   border-color: var(--color-emerald);
   background: rgba(16, 185, 129, 0.05);
