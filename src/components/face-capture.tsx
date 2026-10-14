@@ -184,6 +184,18 @@ export function FaceCapture({
     }
   }, []);
 
+  const optimalDurationRef = useRef(0);
+  const hasCapturedRef = useRef(false);
+  const handleCaptureRef = useRef<() => void>(() => {});
+  const autoCaptureEnabledRef = useRef(true);
+  const isProcessingRef = useRef(false);
+  const successRef = useRef(false);
+
+  // Sync refs with state on every render
+  autoCaptureEnabledRef.current = autoCaptureEnabled;
+  isProcessingRef.current = isProcessing;
+  successRef.current = success;
+
   // Main real-time live detection loop (throttled to ~10-15 FPS for silky-smooth performance)
   const startLiveDetectionLoop = useCallback(() => {
     if (isLoopRunningRef.current) return;
@@ -200,8 +212,8 @@ export function FaceCapture({
         videoRef.current.readyState >= 2 && 
         !videoRef.current.paused && 
         !videoRef.current.ended &&
-        !isProcessing &&
-        !success
+        !isProcessingRef.current &&
+        !successRef.current
       ) {
         if (timestamp - lastRunTime >= INTERVAL_MS) {
           lastRunTime = timestamp;
@@ -212,8 +224,38 @@ export function FaceCapture({
             if (canvasRef.current) {
               drawLandmarksAndHUD(canvasRef.current, videoRef.current, result);
             }
+
+            // Reliable loop-driven auto-capture logic
+            if (result.status === 'optimal') {
+              if (
+                autoCaptureEnabledRef.current && 
+                !hasCapturedRef.current && 
+                !isProcessingRef.current && 
+                !successRef.current
+              ) {
+                optimalDurationRef.current += INTERVAL_MS;
+                const TARGET_HOLD_MS = 1200; // 1.2s steady hold in optimal zone
+
+                if (optimalDurationRef.current >= TARGET_HOLD_MS) {
+                  hasCapturedRef.current = true;
+                  setAutoCaptureCountdown(null);
+                  handleCaptureRef.current();
+                } else {
+                  // Visual countdown: 3 -> 2 -> 1
+                  const remainingSec = Math.max(
+                    1, 
+                    Math.ceil((TARGET_HOLD_MS - optimalDurationRef.current) / 400)
+                  );
+                  setAutoCaptureCountdown(remainingSec);
+                }
+              }
+            } else {
+              // Reset countdown immediately if face slips out of optimal bounds
+              optimalDurationRef.current = 0;
+              setAutoCaptureCountdown(null);
+            }
           } catch (e) {
-            // Ignore frame glitch
+            // Ignore temporary frame glitch
           }
         }
       }
@@ -222,10 +264,11 @@ export function FaceCapture({
     };
 
     animationFrameRef.current = requestAnimationFrame(loop);
-  }, [drawLandmarksAndHUD, isProcessing, success]);
+  }, [drawLandmarksAndHUD]);
 
   const stopLiveDetectionLoop = useCallback(() => {
     isLoopRunningRef.current = false;
+    optimalDurationRef.current = 0;
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
@@ -234,12 +277,13 @@ export function FaceCapture({
 
   // Capture face and execute onCapture callback
   const handleCapture = useCallback(async () => {
-    if (!videoRef.current || isProcessing) return;
+    if (!videoRef.current || isProcessingRef.current) return;
     
     setIsProcessing(true);
     setError(null);
     setSuccess(false);
     setAutoCaptureCountdown(null);
+    optimalDurationRef.current = 0;
     
     try {
       // High-precision 128-float descriptor extraction
@@ -248,6 +292,11 @@ export function FaceCapture({
       if (!descriptor) {
         setError('Wajah tidak terdeteksi jelas. Pastikan wajah tepat berada di dalam lingkaran panduan dan pencahayaan terang.');
         setIsProcessing(false);
+        // Allow user to try auto-capture again after 2 seconds
+        setTimeout(() => {
+          hasCapturedRef.current = false;
+          optimalDurationRef.current = 0;
+        }, 2000);
         return;
       }
       
@@ -257,6 +306,11 @@ export function FaceCapture({
       if (result && typeof result === 'object' && result.success === false) {
         setSuccess(false);
         setError(result.message || 'Wajah tidak cocok dengan data pendaftaran.');
+        // Allow user to try auto-capture again after 2 seconds
+        setTimeout(() => {
+          hasCapturedRef.current = false;
+          optimalDurationRef.current = 0;
+        }, 2000);
       } else {
         setSuccess(true);
         setError(null);
@@ -267,51 +321,24 @@ export function FaceCapture({
       console.error('Capture error:', err);
       setSuccess(false);
       setError(err?.message || 'Terjadi kesalahan saat memproses data wajah.');
+      setTimeout(() => {
+        hasCapturedRef.current = false;
+        optimalDurationRef.current = 0;
+      }, 2000);
     } finally {
       setIsProcessing(false);
     }
-  }, [isProcessing, onCapture, stopLiveDetectionLoop]);
+  }, [onCapture, stopLiveDetectionLoop]);
 
-  // Auto-capture countdown logic when face is held in the optimal zone
-  useEffect(() => {
-    if (!autoCaptureEnabled || success || isProcessing || isInitializing) {
-      setAutoCaptureCountdown(null);
-      if (optimalTimerRef.current) clearInterval(optimalTimerRef.current);
-      return;
-    }
-
-    if (liveState.status === 'optimal') {
-      if (autoCaptureCountdown === null) {
-        setAutoCaptureCountdown(3);
-        let count = 3;
-        if (optimalTimerRef.current) clearInterval(optimalTimerRef.current);
-        
-        optimalTimerRef.current = setInterval(() => {
-          count -= 1;
-          if (count > 0) {
-            setAutoCaptureCountdown(count);
-          } else {
-            clearInterval(optimalTimerRef.current!);
-            setAutoCaptureCountdown(null);
-            handleCapture();
-          }
-        }, 600);
-      }
-    } else {
-      // If position slips out of optimal, reset countdown immediately
-      if (optimalTimerRef.current) clearInterval(optimalTimerRef.current);
-      setAutoCaptureCountdown(null);
-    }
-
-    return () => {
-      if (optimalTimerRef.current) clearInterval(optimalTimerRef.current);
-    };
-  }, [liveState.status, autoCaptureEnabled, success, isProcessing, isInitializing, autoCaptureCountdown, handleCapture]);
+  // Keep handleCaptureRef pointing to the latest version
+  handleCaptureRef.current = handleCapture;
 
   const retry = () => {
+    hasCapturedRef.current = false;
+    optimalDurationRef.current = 0;
+    setAutoCaptureCountdown(null);
     setSuccess(false);
     setError(null);
-    setAutoCaptureCountdown(null);
     startLiveDetectionLoop();
   };
 
