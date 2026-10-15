@@ -107,11 +107,14 @@ export default function AttendancePage() {
     // Face matched! Proceed to submit to API
     try {
       const endpoint = hasCheckedIn ? '/api/attendance/checkout' : '/api/attendance/checkin';
-      const body = hasCheckedIn ? {} : {
-        lat: locationData.pos.lat,
-        long: locationData.pos.long,
-        distance_from_office: locationData.distance
-      };
+      const body = hasCheckedIn
+        ? { face_descriptor: descriptor }
+        : {
+            lat: locationData.pos.lat,
+            long: locationData.pos.long,
+            distance_from_office: locationData.distance,
+            face_descriptor: descriptor,
+          };
       
       const res = await fetch(endpoint, {
         method: 'POST',

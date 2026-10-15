@@ -277,12 +277,18 @@ export function FaceCapture({
     setStepCountdown(null);
 
     try {
-      // Collect all gathered descriptors
+      // Collect all gathered frontal descriptors
+      // The 'turn' step is strictly a liveness anti-spoof challenge to prove a living human,
+      // and is deliberately not mixed into frontal embeddings to preserve template sharpness.
       const samples: Float32Array[] = [];
       if (sampledDescriptorsRef.current.front) samples.push(sampledDescriptorsRef.current.front);
-      if (sampledDescriptorsRef.current.turn) samples.push(sampledDescriptorsRef.current.turn);
       if (sampledDescriptorsRef.current.final) samples.push(sampledDescriptorsRef.current.final);
-      if (samples.length === 0 && lastGoodDescriptorRef.current) {
+
+      // Extract fresh high-resolution frontal sample
+      const freshHighRes = await getFaceDescriptor(videoRef.current);
+      if (freshHighRes) {
+        samples.push(freshHighRes);
+      } else if (samples.length === 0 && lastGoodDescriptorRef.current) {
         samples.push(lastGoodDescriptorRef.current);
       }
 
@@ -291,7 +297,7 @@ export function FaceCapture({
       if (samples.length > 0) {
         finalVector = combineDescriptors(samples);
       } else {
-        const fresh = await getFaceDescriptor(videoRef.current);
+        const fresh = freshHighRes || await getFaceDescriptor(videoRef.current);
         if (!fresh) {
           throw new Error('Gagal mendeteksi wajah saat pengambilan akhir. Pastikan pencahayaan cukup.');
         }
@@ -577,7 +583,7 @@ export function FaceCapture({
     setAutoCaptureCountdown(null);
 
     try {
-      const desc = currentDescriptor || await getFaceDescriptor(videoRef.current);
+      const desc = (await getFaceDescriptor(videoRef.current)) || currentDescriptor;
       if (!desc) {
         throw new Error('Wajah tidak terdeteksi jelas. Pastikan wajah tepat berada di dalam lingkaran panduan.');
       }

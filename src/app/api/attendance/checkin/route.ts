@@ -10,6 +10,8 @@ import { requireRole } from '@/lib/auth';
 import { INTERN_PORTAL_ROLES } from '@/lib/permissions';
 import { todayISO } from '@/lib/utils';
 
+import { verifyFaceDescriptors } from '@/lib/face-math';
+
 export async function POST(request: NextRequest) {
   try {
     // Only interns can check in
@@ -22,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { lat, long, distance_from_office } = body;
+    const { lat, long, distance_from_office, face_descriptor } = body;
 
     if (lat == null || long == null || distance_from_office == null) {
       return NextResponse.json(
@@ -34,6 +36,30 @@ export async function POST(request: NextRequest) {
     const supabase = createAdminClient();
     const today = todayISO();
     const now = new Date().toISOString();
+
+    // Verify user profile & registered face descriptor
+    const { data: userRow } = await supabase
+      .from('users')
+      .select('status, face_descriptor')
+      .eq('id', session.id)
+      .single();
+
+    if (!userRow?.face_descriptor || !Array.isArray(userRow.face_descriptor)) {
+      return NextResponse.json(
+        { success: false, error: 'Wajah Anda belum terdaftar di sistem. Silakan daftarkan wajah terlebih dahulu.' },
+        { status: 400 }
+      );
+    }
+
+    if (face_descriptor && Array.isArray(face_descriptor)) {
+      const faceVerification = verifyFaceDescriptors(face_descriptor, userRow.face_descriptor);
+      if (!faceVerification.matched) {
+        return NextResponse.json(
+          { success: false, error: faceVerification.message },
+          { status: 403 }
+        );
+      }
+    }
 
     // Check if already checked in today
     const { data: existing } = await supabase
@@ -49,13 +75,6 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
-
-    // Determine whether today counts as a perbantuan (extended duty) day
-    const { data: userRow } = await supabase
-      .from('users')
-      .select('status')
-      .eq('id', session.id)
-      .single();
 
     // Insert new attendance record
     const { data, error } = await supabase

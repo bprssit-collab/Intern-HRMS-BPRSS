@@ -9,9 +9,19 @@
  */
 
 import type { FaceMatchResult } from '@/types';
+import {
+  FACE_MATCH_THRESHOLD,
+  euclideanDistance,
+  calculateSimilarityPercentage,
+  verifyFaceDescriptors,
+} from './face-math';
 
-// Threshold for face matching: <= 0.65 (balanced tolerance for webcam lighting & face angles)
-export const FACE_MATCH_THRESHOLD = 0.65;
+export {
+  FACE_MATCH_THRESHOLD,
+  euclideanDistance,
+  calculateSimilarityPercentage,
+  verifyFaceDescriptors,
+};
 
 // Track if models are already loaded to avoid re-loading
 let modelsLoaded = false;
@@ -264,47 +274,7 @@ export function compareFaceDescriptors(
   liveDescriptor: Float32Array,
   storedDescriptor: number[]
 ): FaceMatchResult {
-  if (storedDescriptor.length !== 128) {
-    return {
-      matched: false,
-      distance: Infinity,
-      similarityScore: 0,
-      message: 'Data wajah tersimpan tidak valid. Silakan lakukan pendaftaran ulang wajah di menu Data Wajah.',
-    };
-  }
-
-  // Compute Euclidean distance between two 128-dim vectors
-  const distance = euclideanDistance(
-    Array.from(liveDescriptor),
-    storedDescriptor
-  );
-
-  const matched = distance <= FACE_MATCH_THRESHOLD;
-  const similarityScore = Math.max(0, Math.min(100, Math.round((1 - Math.min(distance, 1.0)) * 100)));
-
-  return {
-    matched,
-    distance,
-    similarityScore,
-    message: matched
-      ? `Wajah cocok & terverifikasi (Kecocokan: ${similarityScore}%).`
-      : `Wajah tidak cocok dengan data terdaftar (Kemiripan: ${similarityScore}%, jarak: ${distance.toFixed(2)} / maks: ${FACE_MATCH_THRESHOLD}). Pastikan pencahayaan cukup dan hadap lurus ke kamera.`,
-  };
-}
-
-/**
- * Calculates the Euclidean distance between two equal-length numeric vectors.
- */
-function euclideanDistance(a: number[], b: number[]): number {
-  if (a.length !== b.length) {
-    throw new Error('Descriptor vectors must have the same length');
-  }
-  let sum = 0;
-  for (let i = 0; i < a.length; i++) {
-    const diff = a[i] - b[i];
-    sum += diff * diff;
-  }
-  return Math.sqrt(sum);
+  return verifyFaceDescriptors(liveDescriptor, storedDescriptor, FACE_MATCH_THRESHOLD);
 }
 
 /**
