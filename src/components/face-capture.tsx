@@ -133,6 +133,7 @@ export function FaceCapture({
     turn?: Float32Array;
     final?: Float32Array;
   }>({});
+  const lastGoodDescriptorRef = useRef<Float32Array | null>(null);
 
   // Initialize camera and models on mount
   useEffect(() => {
@@ -254,6 +255,16 @@ export function FaceCapture({
     }
   }, []);
 
+  const stopLiveDetectionLoop = useCallback(() => {
+    isLoopRunningRef.current = false;
+    optimalDurationRef.current = 0;
+    stepHoldTimeRef.current = 0;
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  }, []);
+
   // Submit collected face data
   const finalizeRegistration = useCallback(async () => {
     if (!videoRef.current || isProcessingRef.current) return;
@@ -271,6 +282,9 @@ export function FaceCapture({
       if (sampledDescriptorsRef.current.front) samples.push(sampledDescriptorsRef.current.front);
       if (sampledDescriptorsRef.current.turn) samples.push(sampledDescriptorsRef.current.turn);
       if (sampledDescriptorsRef.current.final) samples.push(sampledDescriptorsRef.current.final);
+      if (samples.length === 0 && lastGoodDescriptorRef.current) {
+        samples.push(lastGoodDescriptorRef.current);
+      }
 
       // If for any reason no samples exist, extract fresh from video
       let finalVector: Float32Array;
@@ -315,11 +329,8 @@ export function FaceCapture({
         isProcessingRef.current = false;
         setIsProcessing(false);
       }, 2500);
-    } finally {
-      setIsProcessing(false);
-      isProcessingRef.current = false;
     }
-  }, [onCapture]);
+  }, [onCapture, stopLiveDetectionLoop]);
 
   // Advance to next liveness step with visual feedback
   const advanceStep = useCallback((stepDone: LivenessStep, nextStep: LivenessStep, toastText?: string) => {
@@ -380,6 +391,10 @@ export function FaceCapture({
             const result = await detectLiveFace(videoRef.current);
             setLiveState(result);
 
+            if (result.descriptor) {
+              lastGoodDescriptorRef.current = result.descriptor;
+            }
+
             if (canvasRef.current) {
               drawLandmarksAndHUD(canvasRef.current, videoRef.current, result);
             }
@@ -416,18 +431,13 @@ export function FaceCapture({
                     } else if (stepHoldTimeRef.current >= TOTAL_MS) {
                       setStepCountdown(null);
                       stepHoldTimeRef.current = 0;
-                      isExtractingRef.current = true;
 
-                      // Extract frontal descriptor sample
-                      try {
-                        const desc = await getFaceDescriptor(videoRef.current!);
-                        if (desc) sampledDescriptorsRef.current.front = desc;
-                      } catch (e) {
-                        console.warn('Step 1 extraction error:', e);
-                      } finally {
-                        isExtractingRef.current = false;
-                        advanceStep('front', 'turn', '✓ Langkah 1: Depan Tercatat!');
+                      // Grab descriptor directly from current frame or fallback
+                      const desc = result.descriptor || lastGoodDescriptorRef.current;
+                      if (desc) {
+                        sampledDescriptorsRef.current.front = desc;
                       }
+                      advanceStep('front', 'turn', '✓ Langkah 1: Depan Tercatat!');
                     } else {
                       const remaining = Math.ceil((TOTAL_MS - stepHoldTimeRef.current) / 600);
                       setStepCountdown(Math.max(1, Math.min(2, remaining)));
@@ -455,18 +465,13 @@ export function FaceCapture({
                     } else if (stepHoldTimeRef.current >= TOTAL_MS) {
                       setStepCountdown(null);
                       stepHoldTimeRef.current = 0;
-                      isExtractingRef.current = true;
 
-                      // Extract turned descriptor sample
-                      try {
-                        const desc = await getFaceDescriptor(videoRef.current!);
-                        if (desc) sampledDescriptorsRef.current.turn = desc;
-                      } catch (e) {
-                        console.warn('Step 2 extraction error:', e);
-                      } finally {
-                        isExtractingRef.current = false;
-                        advanceStep('turn', 'final', '✓ Langkah 2: Samping Tercatat!');
+                      // Grab descriptor directly from current frame or fallback
+                      const desc = result.descriptor || lastGoodDescriptorRef.current;
+                      if (desc) {
+                        sampledDescriptorsRef.current.turn = desc;
                       }
+                      advanceStep('turn', 'final', '✓ Langkah 2: Samping Tercatat!');
                     } else {
                       const remaining = Math.ceil((TOTAL_MS - stepHoldTimeRef.current) / 600);
                       setStepCountdown(Math.max(1, Math.min(2, remaining)));
@@ -495,19 +500,14 @@ export function FaceCapture({
                       setStepCountdown(null);
                       hasCapturedRef.current = true;
                       stepHoldTimeRef.current = 0;
-                      isExtractingRef.current = true;
 
-                      // Extract final descriptor sample
-                      try {
-                        const desc = await getFaceDescriptor(videoRef.current!);
-                        if (desc) sampledDescriptorsRef.current.final = desc;
-                      } catch (e) {
-                        console.warn('Step 3 extraction error:', e);
-                      } finally {
-                        isExtractingRef.current = false;
-                        advanceStep('final', 'final', '✓ Selesai! Menyimpan data...');
-                        finalizeRegistration();
+                      // Grab descriptor directly from current frame or fallback
+                      const desc = result.descriptor || lastGoodDescriptorRef.current;
+                      if (desc) {
+                        sampledDescriptorsRef.current.final = desc;
                       }
+                      advanceStep('final', 'final', '✓ Selesai! Menyimpan data...');
+                      finalizeRegistration();
                     } else {
                       const remaining = Math.ceil((TOTAL_MS - stepHoldTimeRef.current) / 500);
                       setStepCountdown(Math.max(1, Math.min(2, remaining)));
@@ -540,7 +540,7 @@ export function FaceCapture({
                   } else if (optimalDurationRef.current >= TOTAL_HOLD_MS) {
                     hasCapturedRef.current = true;
                     setAutoCaptureCountdown(null);
-                    handleVerifyCapture();
+                    handleVerifyCapture(result.descriptor);
                   } else {
                     const elapsedAfterStabilize = optimalDurationRef.current - STABILIZE_MS;
                     const remaining = 2 - Math.floor(elapsedAfterStabilize / STEP_MS);
@@ -564,18 +564,9 @@ export function FaceCapture({
     animationFrameRef.current = requestAnimationFrame(loop);
   }, [drawLandmarksAndHUD, mode, advanceStep, finalizeRegistration]);
 
-  const stopLiveDetectionLoop = useCallback(() => {
-    isLoopRunningRef.current = false;
-    optimalDurationRef.current = 0;
-    stepHoldTimeRef.current = 0;
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-  }, []);
 
   // Verification capture handler (for daily attendance)
-  const handleVerifyCapture = useCallback(async () => {
+  const handleVerifyCapture = useCallback(async (currentDescriptor?: Float32Array) => {
     if (!videoRef.current || isProcessingRef.current) return;
 
     setIsProcessing(true);
@@ -586,7 +577,7 @@ export function FaceCapture({
     setAutoCaptureCountdown(null);
 
     try {
-      const desc = await getFaceDescriptor(videoRef.current);
+      const desc = currentDescriptor || await getFaceDescriptor(videoRef.current);
       if (!desc) {
         throw new Error('Wajah tidak terdeteksi jelas. Pastikan wajah tepat berada di dalam lingkaran panduan.');
       }
@@ -618,9 +609,6 @@ export function FaceCapture({
         isProcessingRef.current = false;
         setIsProcessing(false);
       }, 2200);
-    } finally {
-      setIsProcessing(false);
-      isProcessingRef.current = false;
     }
   }, [onCapture, stopLiveDetectionLoop]);
 

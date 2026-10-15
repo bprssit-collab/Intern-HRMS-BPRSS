@@ -91,11 +91,13 @@ export interface LiveDetectionResult {
   distanceScore: number; // 0 (far) .. 50 (ideal) .. 100 (close)
   faceRatio: number;
   pose?: FacePoseMetrics;
+  descriptor?: Float32Array;
 }
 
 /**
  * Fast real-time face detection for live video stream guidance.
  * Analyzes face presence, frontal angle/pose, position, distance ratio, and liveness metrics (blink, yaw, pitch).
+ * Also extracts 128-float FaceNet descriptor in the same single pass.
  */
 export async function detectLiveFace(
   video: HTMLVideoElement
@@ -105,9 +107,10 @@ export async function detectLiveFace(
   const detection = await faceapi
     .detectSingleFace(
       video,
-      new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.45 })
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.38 })
     )
-    .withFaceLandmarks();
+    .withFaceLandmarks()
+    .withFaceDescriptor();
 
   if (!detection) {
     return {
@@ -245,6 +248,7 @@ export async function detectLiveFace(
     distanceScore,
     faceRatio,
     pose,
+    descriptor: detection.descriptor,
   };
 }
 

@@ -5,6 +5,9 @@ import { Calendar, Clock, History, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function InternDashboard() {
   const session = await getSession();
   if (!session) redirect('/');
@@ -80,11 +83,11 @@ export default async function InternDashboard() {
 
         <div className="mt-6 flex gap-3">
           <Link 
-            href="/intern/attendance" 
+            href={needsFaceReg ? "/intern/register-face" : "/intern/attendance"} 
             className="btn-primary flex-1"
           >
             <Clock className="w-4 h-4" /> 
-            {!todayRecord ? 'Absen Masuk' : !todayRecord.check_out_time ? 'Absen Keluar' : 'Lihat Detail'}
+            {needsFaceReg ? 'Daftar Wajah Terlebih Dahulu' : !todayRecord ? 'Absen Masuk' : !todayRecord.check_out_time ? 'Absen Keluar' : 'Lihat Detail'}
           </Link>
         </div>
       </div>

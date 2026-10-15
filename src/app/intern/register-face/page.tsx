@@ -32,11 +32,10 @@ export default function RegisterFacePage() {
       setStatus('success');
       setMessage(json.message);
       
-      // Auto redirect after 2s
+      // Hard reload redirect so dashboard and attendance fetch fresh profile
       setTimeout(() => {
-        router.push('/intern/dashboard');
-        router.refresh();
-      }, 2000);
+        window.location.href = '/intern/dashboard';
+      }, 1500);
 
       return { success: true };
       

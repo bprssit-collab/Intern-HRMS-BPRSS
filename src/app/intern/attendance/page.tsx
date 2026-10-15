@@ -27,11 +27,11 @@ export default function AttendancePage() {
   useEffect(() => {
     async function init() {
       try {
-        // Fetch user, settings, and today's attendance in parallel
+        // Fetch user, settings, and today's attendance in parallel with no cache
         const [userRes, settingsRes, historyRes] = await Promise.all([
-          fetch('/api/users/me'),
-          fetch('/api/settings'),
-          fetch('/api/attendance/my-history?limit=1')
+          fetch('/api/users/me', { cache: 'no-store' }),
+          fetch('/api/settings', { cache: 'no-store' }),
+          fetch('/api/attendance/my-history?limit=1', { cache: 'no-store' })
         ]);
         
         const userData = await userRes.json();
@@ -175,7 +175,16 @@ export default function AttendancePage() {
     return (
       <div className="flex flex-col items-center justify-center h-64 sm:pl-56">
         <div className="spinner !w-10 !h-10 mb-4"></div>
-        <p className="text-slate-400">Memuat data...</p>
+        <p className="text-slate-400">Memuat data absensi...</p>
+      </div>
+    );
+  }
+
+  if (!userProfile?.face_descriptor) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 sm:pl-56">
+        <div className="spinner !w-8 !h-8 mb-4"></div>
+        <p className="text-slate-300">Wajah belum terdaftar. Mengalihkan ke pendaftaran wajah...</p>
       </div>
     );
   }
@@ -185,7 +194,7 @@ export default function AttendancePage() {
       <div className="sm:pl-56">
         <div className="alert alert-error">
           <AlertCircle className="w-5 h-5" />
-          {error || 'Terjadi kesalahan sistem.'}
+          {error || 'Gagal memuat pengaturan kantor. Silakan refresh halaman.'}
         </div>
       </div>
     );
