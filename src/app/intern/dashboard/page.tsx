@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase';
-import { formatDateID, formatTime, statusLabel, statusColor, cn } from '@/lib/utils';
+import { formatDateID, formatTime, todayISO, statusLabel, statusColor, cn } from '@/lib/utils';
 import { Calendar, Clock, History, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -31,8 +31,8 @@ export default async function InternDashboard() {
     .order('date', { ascending: false })
     .limit(30);
 
-  // Check today's status
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Check today's status in Asia/Jakarta timezone
+  const todayStr = todayISO();
   const todayRecord = (history as any[])?.find((h: any) => h.date === todayStr);
 
   return (

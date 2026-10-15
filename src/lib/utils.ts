@@ -6,27 +6,32 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Formats a date string to Indonesian locale display */
+/** Formats a date string to Indonesian locale display in Asia/Jakarta (WIB) */
 export function formatDateID(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('id-ID', {
+  if (!dateStr) return '-';
+  const d = dateStr.includes('T') ? new Date(dateStr) : new Date(`${dateStr}T12:00:00Z`);
+  return d.toLocaleDateString('id-ID', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: 'Asia/Jakarta',
   });
 }
 
-/** Formats a datetime string to time-only HH:MM */
+/** Formats a datetime string to time-only HH:MM in Asia/Jakarta (WIB) */
 export function formatTime(dateStr: string): string {
+  if (!dateStr) return '--:--';
   return new Date(dateStr).toLocaleTimeString('id-ID', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Asia/Jakarta',
   });
 }
 
-/** Returns today's date as YYYY-MM-DD string */
+/** Returns today's date as YYYY-MM-DD string in Asia/Jakarta (WIB) */
 export function todayISO(): string {
-  return new Date().toISOString().split('T')[0];
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
 }
 
 /** Capitalizes first letter of a string */

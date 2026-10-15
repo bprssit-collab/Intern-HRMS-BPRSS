@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { GeofenceChecker } from '@/components/geofence-checker';
 import { FaceCapture } from '@/components/face-capture';
 import { compareFaceDescriptors } from '@/lib/face-api';
+import { todayISO } from '@/lib/utils';
 import type { GeoPosition, Settings, User } from '@/types';
 import { AlertCircle, CheckCircle, Clock, RotateCcw } from 'lucide-react';
 
@@ -46,8 +47,8 @@ export default function AttendancePage() {
         setUserProfile(userData.data);
         setSettings(settingsData.data);
         
-        // Check if already checked in today
-        const todayStr = new Date().toISOString().split('T')[0];
+        // Check if already checked in today in Asia/Jakarta timezone
+        const todayStr = todayISO();
         const latestRecord = historyData.data?.[0];
         
         if (latestRecord && latestRecord.date === todayStr) {
