@@ -163,65 +163,57 @@ export async function detectLiveFace(
   const distToRightJaw = Math.abs(pt16.x - pt30.x);
   const jawRatio = distToLeftJaw / (distToRightJaw || 1);
 
-  // Inner eye corner symmetry relative to nose bridge
-  const distToLeftEye = Math.abs(pt27.x - pt39.x);
-  const distToRightEye = Math.abs(pt42.x - pt27.x);
-  const eyeNoseRatio = distToLeftEye / (distToRightEye || 1);
-
   // Head tilt (Roll angle)
   const eyeDeltaY = Math.abs(pt36.y - pt45.y);
   const eyeDistX = Math.abs(pt45.x - pt36.x) || 1;
   const rollRatio = eyeDeltaY / eyeDistX;
 
-  // Pitch calculation: eye-to-nose vs nose-to-chin
+  // Determine Yaw pose with relaxed, forgiving thresholds
+  // In mirrored selfie camera view:
+  // Turning right makes nose move closer to left image edge (pt0) => jawRatio < 0.68
+  // Turning left makes nose move closer to right image edge (pt16) => jawRatio > 1.48
+  let yaw: 'center' | 'left' | 'right' = 'center';
+  if (jawRatio < 0.68) {
+    yaw = 'right';
+  } else if (jawRatio > 1.48) {
+    yaw = 'left';
+  }
+
+  // Pitch calculation: eye-to-nose vs nose-to-chin (informational only, does NOT block optimal status)
   const distEyeToNose = Math.abs(pt30.y - pt27.y);
   const distNoseToChin = Math.abs(pt8.y - pt30.y) || 1;
   const pitchRatio = distEyeToNose / distNoseToChin;
 
-  // Determine Yaw pose (in mirrored selfie orientation)
-  let yaw: 'center' | 'left' | 'right' = 'center';
-  if (jawRatio < 0.62 || eyeNoseRatio < 0.45) {
-    yaw = 'right';
-  } else if (jawRatio > 1.62 || eyeNoseRatio > 2.2) {
-    yaw = 'left';
-  }
-
-  // Determine Pitch pose
   let pitch: 'center' | 'up' | 'down' = 'center';
-  if (pitchRatio < 0.46) {
+  if (pitchRatio < 0.32) {
     pitch = 'up';
-  } else if (pitchRatio > 1.10) {
+  } else if (pitchRatio > 1.40) {
     pitch = 'down';
   }
 
-  const isFrontal = yaw === 'center' && pitch === 'center' && rollRatio <= 0.28;
-  const isSideways = yaw !== 'center';
-  const isTilted = rollRatio > 0.30;
+  // Natural frontal posture: generous tolerance suitable for hand-held smartphones and webcams
+  const isFrontal = yaw === 'center' && rollRatio <= 0.45;
+  const isSevereSideways = jawRatio < 0.35 || jawRatio > 2.85;
+  const isSevereTilted = rollRatio > 0.48;
 
   let status: LiveDetectionResult['status'] = 'optimal';
   let message = 'Jarak & Posisi Wajah Optimal!';
 
-  if (isSideways) {
-    status = 'not_frontal';
-    message = yaw === 'right' ? 'Wajah menoleh ke kanan — hadap lurus ke kamera' : 'Wajah menoleh ke kiri — hadap lurus ke kamera';
-  } else if (isTilted) {
-    status = 'not_frontal';
-    message = 'Posisikan kepala tegak (jangan miring)';
-  } else if (pitch === 'up') {
-    status = 'not_frontal';
-    message = 'Turunkan dagu sedikit — hadap lurus ke kamera';
-  } else if (pitch === 'down') {
-    status = 'not_frontal';
-    message = 'Angkat kepala sedikit — hadap lurus ke kamera';
-  } else if (faceRatio < 0.16) {
+  if (faceRatio < 0.11) {
     status = 'too_far';
-    message = 'Wajah terlalu jauh — silakan dekatkan kamera';
-  } else if (faceRatio > 0.70) {
+    message = 'Wajah agak jauh — silakan dekatkan kamera';
+  } else if (faceRatio > 0.78) {
     status = 'too_close';
-    message = 'Wajah terlalu dekat — silakan mundurkan sedikit';
-  } else if (Math.abs(centerX - 0.5) > 0.22 || Math.abs(centerY - 0.5) > 0.24) {
+    message = 'Wajah terlalu dekat — mundurkan sedikit';
+  } else if (Math.abs(centerX - 0.5) > 0.30 || Math.abs(centerY - 0.5) > 0.32) {
     status = 'off_center';
-    message = 'Posisikan wajah ke arah tengah lingkaran';
+    message = 'Arahkan wajah ke tengah layar';
+  } else if (isSevereSideways) {
+    status = 'not_frontal';
+    message = yaw === 'right' ? 'Putar kepala sedikit ke kiri' : 'Putar kepala sedikit ke kanan';
+  } else if (isSevereTilted) {
+    status = 'not_frontal';
+    message = 'Posisikan kepala tegak santai';
   }
 
   const pose: FacePoseMetrics = {
@@ -300,6 +292,45 @@ function euclideanDistance(a: number[], b: number[]): number {
     sum += diff * diff;
   }
   return Math.sqrt(sum);
+}
+
+/**
+ * Combines multiple face descriptors (e.g. from frontal, slight left, slight right angles)
+ * into a single unified centroid descriptor via dimension-wise averaging and L2 normalization.
+ */
+export function combineDescriptors(descriptors: Float32Array[]): Float32Array {
+  if (descriptors.length === 0) {
+    throw new Error('At least one descriptor required to combine');
+  }
+  if (descriptors.length === 1) {
+    return descriptors[0];
+  }
+
+  const length = descriptors[0].length;
+  const combined = new Float32Array(length);
+
+  // Sum dimensions across all descriptors
+  for (const desc of descriptors) {
+    for (let i = 0; i < length; i++) {
+      combined[i] += desc[i];
+    }
+  }
+
+  // Calculate L2 norm
+  let norm = 0;
+  for (let i = 0; i < length; i++) {
+    norm += combined[i] * combined[i];
+  }
+  norm = Math.sqrt(norm);
+
+  // Normalize back to unit vector
+  if (norm > 0) {
+    for (let i = 0; i < length; i++) {
+      combined[i] /= norm;
+    }
+  }
+
+  return combined;
 }
 
 /**

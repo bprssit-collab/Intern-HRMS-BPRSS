@@ -54,7 +54,7 @@ export default function RegisterFacePage() {
           <span>Pendaftaran Wajah Interaktif</span>
         </h2>
         <p className="text-slate-300 text-sm leading-relaxed">
-          Perekaman menggunakan <strong>Verifikasi Liveness & Multi-Sudut</strong> untuk akurasi biometrik maksimal. Ikuti instruksi gerakan di layar: hadap lurus, kedipkan mata, tengok kanan & kiri, serta lihat ke atas. Foto wajah otomatis direkam setelah seluruh gerakan tervalidasi.
+          Perekaman biometrik presisi dengan <strong>3 Sampel Sudut</strong> (Depan, Menoleh Samping, dan Konfirmasi) atau gunakan tombol <strong>Ambil & Simpan Instan</strong> jika ingin langsung menyimpan wajah tanpa gerakan.
         </p>
       </div>
 
