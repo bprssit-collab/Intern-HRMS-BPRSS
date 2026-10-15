@@ -50,10 +50,19 @@ export async function getFaceDescriptor(
 ): Promise<Float32Array | null> {
   const faceapi = await import('face-api.js');
 
-  const detection = await faceapi
-    .detectSingleFace(input, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
+  // Primary attempt with balanced resolution
+  let detection = await faceapi
+    .detectSingleFace(input, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.38 }))
     .withFaceLandmarks()
     .withFaceDescriptor();
+
+  // Robust fallback if first pass missed due to lighting or camera angle
+  if (!detection) {
+    detection = await faceapi
+      .detectSingleFace(input, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.30 }))
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+  }
 
   if (!detection) {
     return null;

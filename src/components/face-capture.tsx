@@ -10,7 +10,6 @@ import {
   type LiveDetectionResult 
 } from '@/lib/face-api';
 import { 
-  Camera, 
   CheckCircle, 
   CheckCircle2,
   RefreshCcw, 
@@ -46,22 +45,22 @@ export const REGISTRATION_STEPS: RegistrationStepConfig[] = [
     id: 'front',
     title: '1. Hadap Depan',
     short: 'Depan',
-    instruction: 'Tatap lurus kamera dengan santai',
-    tip: 'Posisikan wajah berada di tengah lingkaran',
+    instruction: 'Tatap lurus ke kamera di dalam lingkaran',
+    tip: 'Tahan posisi lurus dan santai hingga hitungan selesai',
   },
   {
     id: 'turn',
     title: '2. Sedikit Menoleh',
     short: 'Menoleh',
     instruction: 'Sedikit tolehkan wajah ke samping (kanan atau kiri)',
-    tip: 'Cukup putar sedikit (15-20°) untuk sudut biometrik tambahan',
+    tip: 'Tahan putaran kepala santai (15-20°) hingga hitungan selesai',
   },
   {
     id: 'final',
-    title: '3. Selesai',
-    short: 'Simpan',
-    instruction: 'Kembali tatap lurus ke kamera...',
-    tip: 'Menggabungkan sampel biometrik presisi tinggi',
+    title: '3. Konfirmasi Depan',
+    short: 'Selesai',
+    instruction: 'Kembali tatap lurus ke kamera untuk menyimpan',
+    tip: 'Tahan posisi lurus sejenak untuk memfinalisasi biometrik',
   },
 ];
 
@@ -76,7 +75,6 @@ interface FaceCaptureProps {
 export function FaceCapture({ 
   onCapture, 
   title = "Verifikasi Wajah", 
-  buttonText = "Ambil Foto Wajah",
   mode = "verify",
   successMessage
 }: FaceCaptureProps) {
@@ -88,6 +86,7 @@ export function FaceCapture({
   
   const [isInitializing, setIsInitializing] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingText, setProcessingText] = useState('Memproses Biometrik Wajah...');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   
@@ -100,9 +99,9 @@ export function FaceCapture({
     faceRatio: 0,
   });
 
-  // Auto-capture countdown for verify mode: null when inactive, 2.. 1.. 0
+  // Countdown overlay: null when inactive, 2.. 1.. 0
+  const [stepCountdown, setStepCountdown] = useState<number | null>(null);
   const [autoCaptureCountdown, setAutoCaptureCountdown] = useState<number | null>(null);
-  const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
 
   // Multi-pose Registration State
   const [regStep, setRegStep] = useState<LivenessStep>('front');
@@ -119,9 +118,21 @@ export function FaceCapture({
     turn: false,
     final: false,
   });
+  
+  // Hold durations
   const stepHoldTimeRef = useRef(0);
-  const collectedDescriptorsRef = useRef<Float32Array[]>([]);
-  const isSamplingRef = useRef(false);
+  const optimalDurationRef = useRef(0);
+  const isExtractingRef = useRef(false);
+  const hasCapturedRef = useRef(false);
+  const isProcessingRef = useRef(false);
+  const successRef = useRef(false);
+
+  // Storage for multi-angle samples
+  const sampledDescriptorsRef = useRef<{
+    front?: Float32Array;
+    turn?: Float32Array;
+    final?: Float32Array;
+  }>({});
 
   // Initialize camera and models on mount
   useEffect(() => {
@@ -243,16 +254,77 @@ export function FaceCapture({
     }
   }, []);
 
-  const optimalDurationRef = useRef(0);
-  const hasCapturedRef = useRef(false);
-  const handleCaptureRef = useRef<(forcedImmediate?: boolean) => void>(() => {});
-  const autoCaptureEnabledRef = useRef(true);
-  const isProcessingRef = useRef(false);
-  const successRef = useRef(false);
+  // Submit collected face data
+  const finalizeRegistration = useCallback(async () => {
+    if (!videoRef.current || isProcessingRef.current) return;
+
+    setIsProcessing(true);
+    isProcessingRef.current = true;
+    setProcessingText('Menggabungkan & Menyimpan Sampel Wajah...');
+    setError(null);
+    setSuccess(false);
+    setStepCountdown(null);
+
+    try {
+      // Collect all gathered descriptors
+      const samples: Float32Array[] = [];
+      if (sampledDescriptorsRef.current.front) samples.push(sampledDescriptorsRef.current.front);
+      if (sampledDescriptorsRef.current.turn) samples.push(sampledDescriptorsRef.current.turn);
+      if (sampledDescriptorsRef.current.final) samples.push(sampledDescriptorsRef.current.final);
+
+      // If for any reason no samples exist, extract fresh from video
+      let finalVector: Float32Array;
+      if (samples.length > 0) {
+        finalVector = combineDescriptors(samples);
+      } else {
+        const fresh = await getFaceDescriptor(videoRef.current);
+        if (!fresh) {
+          throw new Error('Gagal mendeteksi wajah saat pengambilan akhir. Pastikan pencahayaan cukup.');
+        }
+        finalVector = fresh;
+      }
+
+      const descriptorArray = descriptorToArray(finalVector);
+
+      // Ensure exact length 128 of finite numbers
+      if (descriptorArray.length !== 128 || !descriptorArray.every(n => typeof n === 'number' && Number.isFinite(n))) {
+        throw new Error('Format biometrik wajah tidak valid.');
+      }
+
+      const result = await onCapture(descriptorArray);
+
+      if (result && typeof result === 'object' && result.success === false) {
+        setSuccess(false);
+        setError(result.message || 'Gagal menyimpan data wajah ke server.');
+        setTimeout(() => {
+          hasCapturedRef.current = false;
+          isProcessingRef.current = false;
+          setIsProcessing(false);
+        }, 2500);
+      } else {
+        setSuccess(true);
+        setError(null);
+        stopLiveDetectionLoop();
+      }
+    } catch (err: any) {
+      console.error('Finalize registration error:', err);
+      setSuccess(false);
+      setError(err?.message || 'Terjadi kesalahan saat menyimpan wajah.');
+      setTimeout(() => {
+        hasCapturedRef.current = false;
+        isProcessingRef.current = false;
+        setIsProcessing(false);
+      }, 2500);
+    } finally {
+      setIsProcessing(false);
+      isProcessingRef.current = false;
+    }
+  }, [onCapture]);
 
   // Advance to next liveness step with visual feedback
   const advanceStep = useCallback((stepDone: LivenessStep, nextStep: LivenessStep, toastText?: string) => {
     stepHoldTimeRef.current = 0;
+    setStepCountdown(null);
 
     completedStepsRef.current = {
       ...completedStepsRef.current,
@@ -262,7 +334,7 @@ export function FaceCapture({
 
     if (toastText) {
       setStepSuccessToast(toastText);
-      setTimeout(() => setStepSuccessToast(null), 1200);
+      setTimeout(() => setStepSuccessToast(null), 1400);
     }
 
     if (stepDone !== nextStep) {
@@ -278,14 +350,9 @@ export function FaceCapture({
       const next = order[idx + 1];
       advanceStep(order[idx], next, `✓ Langkah dilewati`);
     } else {
-      handleCaptureRef.current();
+      finalizeRegistration();
     }
-  }, [advanceStep]);
-
-  // Sync refs with state on every render
-  autoCaptureEnabledRef.current = autoCaptureEnabled;
-  isProcessingRef.current = isProcessing;
-  successRef.current = success;
+  }, [advanceStep, finalizeRegistration]);
 
   // Main real-time live detection loop
   const startLiveDetectionLoop = useCallback(() => {
@@ -304,7 +371,8 @@ export function FaceCapture({
         !videoRef.current.paused && 
         !videoRef.current.ended &&
         !isProcessingRef.current &&
-        !successRef.current
+        !successRef.current &&
+        !isExtractingRef.current
       ) {
         if (timestamp - lastRunTime >= INTERVAL_MS) {
           lastRunTime = timestamp;
@@ -317,21 +385,21 @@ export function FaceCapture({
             }
 
             // -------------------------------------------------------------
-            // MODE: REGISTER (Fast & Forgiving 3-Step Enrollment)
+            // MODE: REGISTER (3-Step Enrollment with Calm, Clear Hold Countdown)
             // -------------------------------------------------------------
             if (mode === 'register') {
               if (
                 !hasCapturedRef.current && 
                 !isProcessingRef.current && 
                 !successRef.current &&
-                !isSamplingRef.current &&
+                !isExtractingRef.current &&
                 result.detected
               ) {
                 const currentStep = regStepRef.current;
                 const pose = result.pose;
 
+                // Step 1: Frontal look (~1500ms hold with visible 2.. 1.. countdown)
                 if (currentStep === 'front') {
-                  // Step 1: Frontal look with very generous tolerance
                   const isFrontalReady = 
                     (result.status === 'optimal' || pose?.isFrontal) && 
                     result.status !== 'too_far' && 
@@ -339,27 +407,38 @@ export function FaceCapture({
 
                   if (isFrontalReady) {
                     stepHoldTimeRef.current += INTERVAL_MS;
-                    if (stepHoldTimeRef.current >= 300) { // Just ~300ms of stable frontal look
+
+                    const STABILIZE_MS = 300;
+                    const TOTAL_MS = 1500; // 1.5 seconds total hold
+
+                    if (stepHoldTimeRef.current < STABILIZE_MS) {
+                      setStepCountdown(null);
+                    } else if (stepHoldTimeRef.current >= TOTAL_MS) {
+                      setStepCountdown(null);
                       stepHoldTimeRef.current = 0;
-                      isSamplingRef.current = true;
+                      isExtractingRef.current = true;
 
                       // Extract frontal descriptor sample
-                      getFaceDescriptor(videoRef.current!)
-                        .then(desc => {
-                          if (desc) collectedDescriptorsRef.current.push(desc);
-                          isSamplingRef.current = false;
-                          advanceStep('front', 'turn', '✓ Depan Tercatat!');
-                        })
-                        .catch(() => {
-                          isSamplingRef.current = false;
-                          advanceStep('front', 'turn', '✓ Depan Tercatat!');
-                        });
+                      try {
+                        const desc = await getFaceDescriptor(videoRef.current!);
+                        if (desc) sampledDescriptorsRef.current.front = desc;
+                      } catch (e) {
+                        console.warn('Step 1 extraction error:', e);
+                      } finally {
+                        isExtractingRef.current = false;
+                        advanceStep('front', 'turn', '✓ Langkah 1: Depan Tercatat!');
+                      }
+                    } else {
+                      const remaining = Math.ceil((TOTAL_MS - stepHoldTimeRef.current) / 600);
+                      setStepCountdown(Math.max(1, Math.min(2, remaining)));
                     }
                   } else {
                     stepHoldTimeRef.current = Math.max(0, stepHoldTimeRef.current - INTERVAL_MS / 2);
+                    setStepCountdown(null);
                   }
-                } else if (currentStep === 'turn') {
-                  // Step 2: Slight turn (either right or left)
+                } 
+                // Step 2: Slight turn to side (~1500ms hold with visible 2.. 1.. countdown)
+                else if (currentStep === 'turn') {
                   const isTurned = 
                     pose?.yaw === 'right' || 
                     pose?.yaw === 'left' || 
@@ -367,27 +446,38 @@ export function FaceCapture({
 
                   if (isTurned) {
                     stepHoldTimeRef.current += INTERVAL_MS;
-                    if (stepHoldTimeRef.current >= 250) { // Just ~250ms of slight turn
+
+                    const STABILIZE_MS = 300;
+                    const TOTAL_MS = 1500; // 1.5 seconds total hold
+
+                    if (stepHoldTimeRef.current < STABILIZE_MS) {
+                      setStepCountdown(null);
+                    } else if (stepHoldTimeRef.current >= TOTAL_MS) {
+                      setStepCountdown(null);
                       stepHoldTimeRef.current = 0;
-                      isSamplingRef.current = true;
+                      isExtractingRef.current = true;
 
                       // Extract turned descriptor sample
-                      getFaceDescriptor(videoRef.current!)
-                        .then(desc => {
-                          if (desc) collectedDescriptorsRef.current.push(desc);
-                          isSamplingRef.current = false;
-                          advanceStep('turn', 'final', '✓ Sudut Samping Tercatat!');
-                        })
-                        .catch(() => {
-                          isSamplingRef.current = false;
-                          advanceStep('turn', 'final', '✓ Lanjut');
-                        });
+                      try {
+                        const desc = await getFaceDescriptor(videoRef.current!);
+                        if (desc) sampledDescriptorsRef.current.turn = desc;
+                      } catch (e) {
+                        console.warn('Step 2 extraction error:', e);
+                      } finally {
+                        isExtractingRef.current = false;
+                        advanceStep('turn', 'final', '✓ Langkah 2: Samping Tercatat!');
+                      }
+                    } else {
+                      const remaining = Math.ceil((TOTAL_MS - stepHoldTimeRef.current) / 600);
+                      setStepCountdown(Math.max(1, Math.min(2, remaining)));
                     }
                   } else {
                     stepHoldTimeRef.current = Math.max(0, stepHoldTimeRef.current - INTERVAL_MS / 2);
+                    setStepCountdown(null);
                   }
-                } else if (currentStep === 'final') {
-                  // Step 3: Return to frontal position and combine
+                } 
+                // Step 3: Return to front & finalize (~1300ms hold with visible 2.. 1..)
+                else if (currentStep === 'final') {
                   const isFrontalReady = 
                     (result.status === 'optimal' || pose?.isFrontal) && 
                     result.status !== 'too_far' && 
@@ -395,11 +485,36 @@ export function FaceCapture({
 
                   if (isFrontalReady) {
                     stepHoldTimeRef.current += INTERVAL_MS;
-                    if (stepHoldTimeRef.current >= 250) {
+
+                    const STABILIZE_MS = 300;
+                    const TOTAL_MS = 1300; // 1.3 seconds hold
+
+                    if (stepHoldTimeRef.current < STABILIZE_MS) {
+                      setStepCountdown(null);
+                    } else if (stepHoldTimeRef.current >= TOTAL_MS) {
+                      setStepCountdown(null);
                       hasCapturedRef.current = true;
-                      advanceStep('final', 'final', '✓ Wajah Presisi Selesai!');
-                      handleCaptureRef.current();
+                      stepHoldTimeRef.current = 0;
+                      isExtractingRef.current = true;
+
+                      // Extract final descriptor sample
+                      try {
+                        const desc = await getFaceDescriptor(videoRef.current!);
+                        if (desc) sampledDescriptorsRef.current.final = desc;
+                      } catch (e) {
+                        console.warn('Step 3 extraction error:', e);
+                      } finally {
+                        isExtractingRef.current = false;
+                        advanceStep('final', 'final', '✓ Selesai! Menyimpan data...');
+                        finalizeRegistration();
+                      }
+                    } else {
+                      const remaining = Math.ceil((TOTAL_MS - stepHoldTimeRef.current) / 500);
+                      setStepCountdown(Math.max(1, Math.min(2, remaining)));
                     }
+                  } else {
+                    stepHoldTimeRef.current = Math.max(0, stepHoldTimeRef.current - INTERVAL_MS / 2);
+                    setStepCountdown(null);
                   }
                 }
               }
@@ -410,7 +525,6 @@ export function FaceCapture({
             else {
               if (result.status === 'optimal') {
                 if (
-                  autoCaptureEnabledRef.current && 
                   !hasCapturedRef.current && 
                   !isProcessingRef.current && 
                   !successRef.current
@@ -419,14 +533,14 @@ export function FaceCapture({
 
                   const STABILIZE_MS = 400;
                   const STEP_MS = 750;
-                  const TOTAL_HOLD_MS = STABILIZE_MS + (STEP_MS * 2); // 1.9s total
+                  const TOTAL_HOLD_MS = STABILIZE_MS + (STEP_MS * 2); // ~1.9s total
 
                   if (optimalDurationRef.current < STABILIZE_MS) {
                     setAutoCaptureCountdown(null);
                   } else if (optimalDurationRef.current >= TOTAL_HOLD_MS) {
                     hasCapturedRef.current = true;
                     setAutoCaptureCountdown(null);
-                    handleCaptureRef.current();
+                    handleVerifyCapture();
                   } else {
                     const elapsedAfterStabilize = optimalDurationRef.current - STABILIZE_MS;
                     const remaining = 2 - Math.floor(elapsedAfterStabilize / STEP_MS);
@@ -448,7 +562,7 @@ export function FaceCapture({
     };
 
     animationFrameRef.current = requestAnimationFrame(loop);
-  }, [drawLandmarksAndHUD, mode, advanceStep]);
+  }, [drawLandmarksAndHUD, mode, advanceStep, finalizeRegistration]);
 
   const stopLiveDetectionLoop = useCallback(() => {
     isLoopRunningRef.current = false;
@@ -460,78 +574,65 @@ export function FaceCapture({
     }
   }, []);
 
-  // Capture face and execute onCapture callback
-  const handleCapture = useCallback(async (forcedImmediate = false) => {
+  // Verification capture handler (for daily attendance)
+  const handleVerifyCapture = useCallback(async () => {
     if (!videoRef.current || isProcessingRef.current) return;
-    
+
     setIsProcessing(true);
+    isProcessingRef.current = true;
+    setProcessingText('Memverifikasi Biometrik Wajah...');
     setError(null);
     setSuccess(false);
     setAutoCaptureCountdown(null);
-    optimalDurationRef.current = 0;
-    
+
     try {
-      // Extract fresh descriptor
-      const currentDesc = await getFaceDescriptor(videoRef.current);
-      
-      if (!currentDesc) {
-        setError('Wajah tidak terdeteksi jelas. Pastikan wajah tepat berada di dalam lingkaran panduan dan pencahayaan terang.');
-        setIsProcessing(false);
-        setTimeout(() => {
-          hasCapturedRef.current = false;
-          optimalDurationRef.current = 0;
-        }, 2000);
-        return;
+      const desc = await getFaceDescriptor(videoRef.current);
+      if (!desc) {
+        throw new Error('Wajah tidak terdeteksi jelas. Pastikan wajah tepat berada di dalam lingkaran panduan.');
       }
 
-      let finalDescriptor: Float32Array;
-
-      // In registration mode: if multi-angle samples were collected, combine them via centroid
-      if (mode === 'register' && !forcedImmediate && collectedDescriptorsRef.current.length > 0) {
-        collectedDescriptorsRef.current.push(currentDesc);
-        finalDescriptor = combineDescriptors(collectedDescriptorsRef.current);
-      } else {
-        finalDescriptor = currentDesc;
-      }
-      
-      const descriptorArray = descriptorToArray(finalDescriptor);
+      const descriptorArray = descriptorToArray(desc);
       const result = await onCapture(descriptorArray);
-      
+
       if (result && typeof result === 'object' && result.success === false) {
         setSuccess(false);
         setError(result.message || 'Wajah tidak cocok dengan data pendaftaran.');
         setTimeout(() => {
           hasCapturedRef.current = false;
           optimalDurationRef.current = 0;
-        }, 2000);
+          isProcessingRef.current = false;
+          setIsProcessing(false);
+        }, 2200);
       } else {
         setSuccess(true);
         setError(null);
         stopLiveDetectionLoop();
       }
-      
     } catch (err: any) {
-      console.error('Capture error:', err);
+      console.error('Verify capture error:', err);
       setSuccess(false);
-      setError(err?.message || 'Terjadi kesalahan saat memproses data wajah.');
+      setError(err?.message || 'Terjadi kesalahan saat memverifikasi wajah.');
       setTimeout(() => {
         hasCapturedRef.current = false;
         optimalDurationRef.current = 0;
-      }, 2000);
+        isProcessingRef.current = false;
+        setIsProcessing(false);
+      }, 2200);
     } finally {
       setIsProcessing(false);
+      isProcessingRef.current = false;
     }
-  }, [mode, onCapture, stopLiveDetectionLoop]);
-
-  // Keep handleCaptureRef pointing to the latest version
-  handleCaptureRef.current = handleCapture;
+  }, [onCapture, stopLiveDetectionLoop]);
 
   const retry = () => {
     hasCapturedRef.current = false;
+    isProcessingRef.current = false;
+    isExtractingRef.current = false;
     optimalDurationRef.current = 0;
     stepHoldTimeRef.current = 0;
-    collectedDescriptorsRef.current = [];
+    sampledDescriptorsRef.current = {};
     setAutoCaptureCountdown(null);
+    setStepCountdown(null);
     setSuccess(false);
     setError(null);
     regStepRef.current = 'front';
@@ -576,7 +677,7 @@ export function FaceCapture({
         {!success && (
           <div className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 font-semibold">
             <Sparkles className="w-3 h-3 text-emerald-400" />
-            <span>{mode === 'register' ? 'Registrasi Presisi' : 'Auto Capture'}</span>
+            <span>{mode === 'register' ? '3-Langkah Presisi' : 'Auto Capture'}</span>
           </div>
         )}
       </div>
@@ -784,8 +885,22 @@ export function FaceCapture({
                 style={{ top: '40%' }}
               />
 
-              {/* GESTURE PROMPTS INSIDE OVAL (REGISTER MODE) */}
-              {mode === 'register' && !stepSuccessToast && (
+              {/* COUNTDOWN OVERLAY INSIDE OVAL (REGISTER MODE) */}
+              {mode === 'register' && stepCountdown !== null && !stepSuccessToast && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 backdrop-blur-xs rounded-[50%] animate-scale-in z-20">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/25 border-2 border-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/50">
+                    <span className="text-3xl font-black text-emerald-300 animate-pulse">
+                      {stepCountdown}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-bold text-emerald-300 mt-2 bg-black/70 px-3 py-0.5 rounded-full border border-emerald-500/40">
+                    Tahan Posisi...
+                  </span>
+                </div>
+              )}
+
+              {/* GESTURE PROMPTS INSIDE OVAL (REGISTER MODE, WHEN NOT COUNTING DOWN) */}
+              {mode === 'register' && stepCountdown === null && !stepSuccessToast && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-3">
                   {regStep === 'front' && (
                     <div className="flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-2.5 rounded-2xl border border-emerald-500/40 shadow-xl animate-fade-in">
@@ -834,17 +949,17 @@ export function FaceCapture({
               )}
 
               {/* Distance / centering hints */}
-              {!stepSuccessToast && liveState.status === 'too_far' && (
+              {!stepSuccessToast && stepCountdown === null && liveState.status === 'too_far' && (
                 <div className="absolute inset-0 flex items-center justify-center animate-ping pointer-events-none opacity-40">
                   <Maximize2 className="w-16 h-16 text-amber-400" />
                 </div>
               )}
-              {!stepSuccessToast && liveState.status === 'too_close' && (
+              {!stepSuccessToast && stepCountdown === null && liveState.status === 'too_close' && (
                 <div className="absolute inset-0 flex items-center justify-center animate-pulse pointer-events-none opacity-40">
                   <Minimize2 className="w-16 h-16 text-orange-400" />
                 </div>
               )}
-              {!stepSuccessToast && liveState.status === 'off_center' && (
+              {!stepSuccessToast && stepCountdown === null && liveState.status === 'off_center' && (
                 <div className="absolute inset-0 flex items-center justify-center animate-pulse pointer-events-none opacity-40">
                   <Move className="w-12 h-12 text-yellow-400" />
                 </div>
@@ -913,15 +1028,15 @@ export function FaceCapture({
 
         {/* Processing Indicator */}
         {isProcessing && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 backdrop-blur-md z-30 animate-fade-in">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md z-30 animate-fade-in">
             <div className="relative mb-3">
               <Loader2 className="w-12 h-12 text-emerald-400 animate-spin" />
               <Zap className="w-5 h-5 text-emerald-300 absolute inset-0 m-auto" />
             </div>
             <p className="text-white text-sm font-bold tracking-wide">
-              {mode === 'verify' ? 'Memverifikasi Biometrik Wajah...' : 'Merekam Vektor Wajah Presisi...'}
+              {processingText}
             </p>
-            <p className="text-xs text-slate-400 mt-1">Mencocokkan dengan model FaceNet</p>
+            <p className="text-xs text-slate-400 mt-1">Menghubungkan ke database server...</p>
           </div>
         )}
 
@@ -944,7 +1059,7 @@ export function FaceCapture({
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-xs font-bold text-red-300 uppercase tracking-wider">Verifikasi Wajah Gagal</p>
+              <p className="text-xs font-bold text-red-300 uppercase tracking-wider">Perekaman Wajah Gagal</p>
               <p className="text-xs text-red-200 leading-relaxed">{error}</p>
               {mode === 'verify' && (
                 <div className="pt-2">
@@ -995,30 +1110,19 @@ export function FaceCapture({
                 />
               </div>
 
-              {/* INSTANT ONE-CLICK RESCUE BUTTON: ALWAYS VISIBLE */}
-              <div className="pt-1 space-y-2">
+              {/* Subtitle & Skip step */}
+              <div className="flex items-center justify-between text-[11px] px-1 pt-1">
+                <span className="text-slate-400">
+                  Tahan posisi santai saat hitungan mundur muncul
+                </span>
                 <button
                   type="button"
-                  onClick={() => handleCapture(true)}
-                  disabled={isProcessing}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.99] text-white rounded-xl font-bold shadow-lg shadow-emerald-950/60 flex items-center justify-center gap-2 transition-all cursor-pointer border border-emerald-400/30"
+                  onClick={skipCurrentStep}
+                  className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors underline cursor-pointer"
                 >
-                  <Camera className="w-4 h-4" />
-                  <span>Ambil & Simpan Foto Sekarang (Instan)</span>
+                  <FastForward className="w-3 h-3" />
+                  Lewati Gerakan
                 </button>
-                <div className="flex items-center justify-between text-[11px] px-1">
-                  <span className="text-slate-400">
-                    💡 Bisa langsung klik tombol di atas kapan saja
-                  </span>
-                  <button
-                    type="button"
-                    onClick={skipCurrentStep}
-                    className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors underline"
-                  >
-                    <FastForward className="w-3 h-3" />
-                    Lewati Gerakan
-                  </button>
-                </div>
               </div>
             </div>
           ) : (

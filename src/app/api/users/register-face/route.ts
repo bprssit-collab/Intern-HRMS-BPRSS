@@ -6,20 +6,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
-import { requireRole } from '@/lib/auth';
+import { getSession } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole('intern');
+    const session = await getSession();
     if (!session) {
       return NextResponse.json(
-        { success: false, error: 'Akses ditolak.' },
-        { status: 403 }
+        { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' },
+        { status: 401 }
       );
     }
 
     const body = await request.json();
     const { face_descriptor } = body;
+
+    console.log(`[/api/users/register-face] Saving face descriptor for user: ${session.name} (${session.email}, role: ${session.role})`);
 
     // Validate descriptor: must be an array of exactly 128 numbers
     if (
@@ -27,6 +29,7 @@ export async function POST(request: NextRequest) {
       face_descriptor.length !== 128 ||
       !face_descriptor.every((v) => typeof v === 'number' && isFinite(v))
     ) {
+      console.warn('[/api/users/register-face] Invalid descriptor received');
       return NextResponse.json(
         { success: false, error: 'Data wajah tidak valid. Pastikan wajah terdeteksi dengan jelas.' },
         { status: 400 }
@@ -40,7 +43,12 @@ export async function POST(request: NextRequest) {
       .update({ face_descriptor })
       .eq('id', session.id);
 
-    if (error) throw error;
+    if (error) {
+      console.error('[/api/users/register-face] Supabase update error:', error);
+      throw error;
+    }
+
+    console.log(`[/api/users/register-face] Face descriptor successfully saved for ${session.email}`);
 
     return NextResponse.json({
       success: true,

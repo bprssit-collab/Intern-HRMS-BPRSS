@@ -54,7 +54,7 @@ export default function RegisterFacePage() {
           <span>Pendaftaran Wajah Interaktif</span>
         </h2>
         <p className="text-slate-300 text-sm leading-relaxed">
-          Perekaman biometrik presisi dengan <strong>3 Sampel Sudut</strong> (Depan, Menoleh Samping, dan Konfirmasi) atau gunakan tombol <strong>Ambil & Simpan Instan</strong> jika ingin langsung menyimpan wajah tanpa gerakan.
+          Perekaman biometrik presisi dengan 3 langkah sudut: <strong>1. Hadap Depan</strong>, <strong>2. Sedikit Menoleh Samping</strong>, dan <strong>3. Konfirmasi Depan</strong>. Posisikan wajah sesuai panduan hingga hitungan selesai pada tiap langkah.
         </p>
       </div>
 
