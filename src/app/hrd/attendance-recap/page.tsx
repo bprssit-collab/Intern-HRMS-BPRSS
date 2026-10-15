@@ -80,6 +80,13 @@ export default function AttendanceRecapPage() {
       if (json.data?.batch?.id && !selectedBatchId) {
         setSelectedBatchId(json.data.batch.id);
       }
+
+      // Sync role from recap response as immediate fallback
+      if (json.data?.currentRole) {
+        setCurrentUser((prev) =>
+          prev ? { ...prev, role: json.data.currentRole } : { id: '', name: '', role: json.data.currentRole }
+        );
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -93,8 +100,9 @@ export default function AttendanceRecapPage() {
     fetch('/api/auth/me')
       .then((res) => res.json())
       .then((json) => {
-        if (json.success && json.user) {
-          setCurrentUser(json.user);
+        const u = json.data || json.user;
+        if (json.success && u) {
+          setCurrentUser(u);
         }
       })
       .catch((err) => console.error('Error fetching current user:', err));
@@ -186,7 +194,8 @@ export default function AttendanceRecapPage() {
     if (!editModal) return;
 
     // Check policy before sending
-    const policy = getAttendanceEditPolicy(currentUser?.role as any, {
+    const activeRole = (currentUser?.role || data?.currentRole) as any;
+    const policy = getAttendanceEditPolicy(activeRole, {
       attended: editModal.hasCheckedIn,
       editCount: editModal.editCount,
     });
@@ -709,7 +718,8 @@ export default function AttendanceRecapPage() {
 
       {/* MODAL QUICK EDIT CELL ATTENDANCE & NOTES */}
       {editModal && editModal.isOpen && (() => {
-        const policy = getAttendanceEditPolicy(currentUser?.role as any, {
+        const activeRole = (currentUser?.role || data?.currentRole) as any;
+        const policy = getAttendanceEditPolicy(activeRole, {
           attended: editModal.hasCheckedIn,
           editCount: editModal.editCount,
         });
@@ -717,10 +727,35 @@ export default function AttendanceRecapPage() {
         return (
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="glass-card max-w-sm w-full p-6 animate-fade-in border-amber-500/40">
-              <h3 className="text-lg font-bold text-white mb-1">Update Status Absensi</h3>
-              <p className="text-slate-400 text-xs mb-3">
-                {editModal.userName} &bull; <strong className="text-amber-400">{formatDateID(editModal.date)}</strong>
-              </p>
+              <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+                <div>
+                  <h3 className="text-base font-bold text-white">Update Status Absensi</h3>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[11px] text-slate-400">Role Anda:</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/25 uppercase font-mono">
+                      {activeRole ? activeRole.replace(/_/g, ' ') : 'Memuat...'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditModal(null)}
+                  className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-white/5 border border-white/10 text-xs mb-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Anak Magang:</span>
+                  <strong className="text-white font-semibold">{editModal.userName}</strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Tanggal Absen:</span>
+                  <strong className="text-amber-400 font-semibold">{formatDateID(editModal.date)}</strong>
+                </div>
+              </div>
 
               {!policy.allowed ? (
                 <div className="space-y-4">
@@ -810,7 +845,7 @@ export default function AttendanceRecapPage() {
 
                   <div className="flex items-center justify-between gap-2 pt-3 border-t border-white/10">
                 {/* Super Admin: Delete today's attendance record */}
-                {currentUser?.role === 'super_admin' &&
+                {activeRole === 'super_admin' &&
                 editModal.date === new Date().toISOString().split('T')[0] &&
                 editModal.currentCode !== null ? (
                   <button
