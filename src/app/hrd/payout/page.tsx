@@ -36,6 +36,10 @@ export default function PayoutPage() {
 
     try {
       const res = await fetch(`/api/hrd/payout?startDate=${startDate}&endDate=${endDate}`);
+      if (res.status === 403) {
+        window.location.href = '/hrd/dashboard';
+        return;
+      }
       const json = await res.json();
       
       if (!res.ok || !json.success) {

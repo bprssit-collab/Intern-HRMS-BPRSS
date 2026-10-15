@@ -6,13 +6,14 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase';
+import { INTERN_PORTAL_ROLES } from '@/lib/permissions';
 import { todayISO } from '@/lib/utils';
 
 export async function POST() {
   try {
     const session = await getSession();
 
-    if (!session || session.role !== 'intern') {
+    if (!session || !INTERN_PORTAL_ROLES.includes(session.role)) {
       return NextResponse.json(
         { success: false, error: 'Tidak memiliki izin.' },
         { status: 403 }

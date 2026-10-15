@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase';
+import { todayISO } from '@/lib/utils';
 
 /**
  * GET /api/admin/reset-attendance-today
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = todayISO();
     const supabase = createAdminClient();
 
     const { data: attendances, error } = await supabase
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || todayISO();
     const supabase = createAdminClient();
 
     // Check user info

@@ -20,15 +20,19 @@ import {
   CheckCircle,
   X,
 } from 'lucide-react';
-import { formatDateID } from '@/lib/utils';
-import type { AttendanceRecapData, AttendanceCode, Batch } from '@/types';
+import { formatDateID, getDefaultRecapRange } from '@/lib/utils';
+import { getAttendanceEditPolicy } from '@/lib/permissions';
+import type { AttendanceRecapData, AttendanceCode, Batch, UserRole } from '@/types';
 
 export default function AttendanceRecapPage() {
   const [data, setData] = useState<AttendanceRecapData | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
-  const [startDate, setStartDate] = useState('2026-09-28');
-  const [endDate, setEndDate] = useState('2026-10-11');
+  
+  // Default range: 2 weeks (Monday of current week to Sunday of next week)
+  const defaultRange = getDefaultRecapRange();
+  const [startDate, setStartDate] = useState(defaultRange.start);
+  const [endDate, setEndDate] = useState(defaultRange.end);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,8 +50,11 @@ export default function AttendanceRecapPage() {
     userId: string;
     userName: string;
     date: string;
+    initialCode: AttendanceCode | null;
     currentCode: AttendanceCode | null;
     currentNotes: string;
+    editCount: number;
+    hasCheckedIn: boolean;
   } | null>(null);
   const [isSavingCell, setIsSavingCell] = useState(false);
 
@@ -152,35 +159,54 @@ export default function AttendanceRecapPage() {
     fetchRecap(selectedBatchId, startDate, endDate);
   };
 
-  const handlePresetSelect = (preset: 'ref' | 'month') => {
-    if (preset === 'ref') {
-      setStartDate('2026-09-28');
-      setEndDate('2026-10-11');
-      fetchRecap(selectedBatchId, '2026-09-28', '2026-10-11');
-    } else {
-      const today = new Date();
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
-      setStartDate(firstDay);
-      setEndDate(lastDay);
-      fetchRecap(selectedBatchId, firstDay, lastDay);
-    }
+  const handleResetToCurrentWeeks = () => {
+    const range = getDefaultRecapRange();
+    setStartDate(range.start);
+    setEndDate(range.end);
+    fetchRecap(selectedBatchId, range.start, range.end);
   };
 
   const openEditModal = (userId: string, userName: string, date: string, cell: any) => {
+    const isAttended = Boolean(cell?.has_checked_in || cell?.code === 'H' || cell?.code === '1/2');
     setEditModal({
       isOpen: true,
       userId,
       userName,
       date,
+      initialCode: cell?.code || null,
       currentCode: cell?.code || null,
       currentNotes: cell?.notes || '',
+      editCount: cell?.edit_count || 0,
+      hasCheckedIn: isAttended,
     });
   };
 
   const handleSaveCell = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editModal) return;
+
+    // Check policy before sending
+    const policy = getAttendanceEditPolicy(currentUser?.role as any, {
+      attended: editModal.hasCheckedIn,
+      editCount: editModal.editCount,
+    });
+
+    if (!policy.allowed) {
+      alert(policy.message);
+      return;
+    }
+
+    if (policy.requireNotes && !editModal.currentNotes.trim()) {
+      alert('Keterangan wajib diisi untuk status izin, sakit, atau alpa.');
+      return;
+    }
+
+    if (policy.oneTimeOnly) {
+      const confirmSave = window.confirm(
+        'Perhatian: Perubahan status ini HANYA DAPAT DILAKUKAN 1 KALI. Setelah disimpan, status akan terkunci dan tidak dapat diubah lagi oleh role Anda.\n\nApakah Anda yakin ingin menyimpan?'
+      );
+      if (!confirmSave) return;
+    }
 
     setIsSavingCell(true);
     try {
@@ -406,11 +432,11 @@ export default function AttendanceRecapPage() {
 
               <button
                 type="button"
-                onClick={() => handlePresetSelect('ref')}
-                className="px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium transition-colors"
-                title="Buka periode contoh Minggu 5 & 6 (28 Sep - 11 Okt 2026)"
+                onClick={handleResetToCurrentWeeks}
+                className="px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-medium transition-colors"
+                title="Tampilkan 2 minggu berjalan (Senin minggu ini s/d Minggu minggu depan)"
               >
-                Preset Minggu 5 & 6
+                2 Minggu Berjalan
               </button>
             </div>
           </form>
@@ -682,63 +708,107 @@ export default function AttendanceRecapPage() {
       )}
 
       {/* MODAL QUICK EDIT CELL ATTENDANCE & NOTES */}
-      {editModal && editModal.isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-card max-w-sm w-full p-6 animate-fade-in border-amber-500/40">
-            <h3 className="text-lg font-bold text-white mb-1">Update Status Absensi</h3>
-            <p className="text-slate-400 text-xs mb-4">
-              {editModal.userName} &bull; <strong className="text-amber-400">{formatDateID(editModal.date)}</strong>
-            </p>
+      {editModal && editModal.isOpen && (() => {
+        const policy = getAttendanceEditPolicy(currentUser?.role as any, {
+          attended: editModal.hasCheckedIn,
+          editCount: editModal.editCount,
+        });
 
-            <form onSubmit={handleSaveCell} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-2">
-                  Pilih Kode Kehadiran
-                </label>
-                <div className="grid grid-cols-5 gap-2">
-                  {[
-                    { code: 'H', label: 'Hadir', bg: 'bg-white text-slate-950 font-bold' },
-                    { code: '1/2', label: '1/2 Hari', bg: 'bg-emerald-600 text-white font-bold' },
-                    { code: 'I', label: 'Izin', bg: 'bg-sky-400 text-slate-950 font-bold' },
-                    { code: 'S', label: 'Sakit', bg: 'bg-amber-400 text-slate-950 font-bold' },
-                    { code: 'A', label: 'Alpa', bg: 'bg-red-600 text-white font-bold' },
-                  ].map((item) => (
+        return (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="glass-card max-w-sm w-full p-6 animate-fade-in border-amber-500/40">
+              <h3 className="text-lg font-bold text-white mb-1">Update Status Absensi</h3>
+              <p className="text-slate-400 text-xs mb-3">
+                {editModal.userName} &bull; <strong className="text-amber-400">{formatDateID(editModal.date)}</strong>
+              </p>
+
+              {!policy.allowed ? (
+                <div className="space-y-4">
+                  <div className="p-3.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs space-y-1.5">
+                    <div className="font-semibold flex items-center gap-1.5 text-rose-200">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      Akses Ubah Terkunci
+                    </div>
+                    <p className="leading-relaxed">{policy.message}</p>
+                  </div>
+
+                  <div className="flex justify-end pt-2 border-t border-white/10">
                     <button
                       type="button"
-                      key={item.code}
-                      onClick={() =>
-                        setEditModal({
-                          ...editModal,
-                          currentCode: editModal.currentCode === item.code ? null : (item.code as AttendanceCode),
-                        })
-                      }
-                      className={`h-11 rounded-lg flex flex-col items-center justify-center text-xs transition-all border ${
-                        editModal.currentCode === item.code
-                          ? `${item.bg} ring-2 ring-white border-transparent shadow-lg scale-105`
-                          : 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10'
-                      }`}
+                      onClick={() => setEditModal(null)}
+                      className="btn-secondary text-xs"
                     >
-                      <span className="font-extrabold">{item.code}</span>
-                      <span className="text-[9px] opacity-80">{item.label}</span>
+                      Tutup
                     </button>
-                  ))}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <form onSubmit={handleSaveCell} className="space-y-4">
+                  {policy.oneTimeOnly && (
+                    <div className="p-2.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs leading-relaxed flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+                      <span>{policy.message}</span>
+                    </div>
+                  )}
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-300">
-                  Keterangan Rinci (Opsional)
-                </label>
-                <textarea
-                  rows={3}
-                  value={editModal.currentNotes}
-                  onChange={(e) => setEditModal({ ...editModal, currentNotes: e.target.value })}
-                  placeholder="Misal: Masuk kuliah dan ada rapat prodi / Pembekalan Pra LAPS..."
-                  className="input-field text-xs w-full resize-none"
-                />
-              </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300 block mb-2">
+                      Pilih Kode Kehadiran
+                    </label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {[
+                        { code: 'H', label: 'Hadir', bg: 'bg-white text-slate-950 font-bold' },
+                        { code: '1/2', label: '1/2 Hari', bg: 'bg-emerald-600 text-white font-bold' },
+                        { code: 'I', label: 'Izin', bg: 'bg-sky-400 text-slate-950 font-bold' },
+                        { code: 'S', label: 'Sakit', bg: 'bg-amber-400 text-slate-950 font-bold' },
+                        { code: 'A', label: 'Alpa', bg: 'bg-red-600 text-white font-bold' },
+                      ].map((item) => {
+                        const isAllowed = policy.allowedCodes.includes(item.code as AttendanceCode);
+                        if (!isAllowed) return null;
 
-              <div className="flex items-center justify-between gap-2 pt-3 border-t border-white/10">
+                        return (
+                          <button
+                            type="button"
+                            key={item.code}
+                            onClick={() =>
+                              setEditModal({
+                                ...editModal,
+                                currentCode: editModal.currentCode === item.code ? null : (item.code as AttendanceCode),
+                              })
+                            }
+                            className={`h-11 rounded-lg flex flex-col items-center justify-center text-xs transition-all border ${
+                              editModal.currentCode === item.code
+                                ? `${item.bg} ring-2 ring-white border-transparent shadow-lg scale-105`
+                                : 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10'
+                            }`}
+                          >
+                            <span className="font-extrabold">{item.code}</span>
+                            <span className="text-[9px] opacity-80">{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                      <span>Keterangan Rinci {policy.requireNotes ? <span className="text-rose-400 font-bold">*Wajib Diisi</span> : <span className="text-slate-500 font-normal">(Opsional)</span>}</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      required={policy.requireNotes}
+                      value={editModal.currentNotes}
+                      onChange={(e) => setEditModal({ ...editModal, currentNotes: e.target.value })}
+                      placeholder={
+                        policy.requireNotes
+                          ? 'Wajib diisi alasan sakit, izin, atau alpa...'
+                          : 'Misal: Masuk kuliah dan ada rapat prodi / Pembekalan...'
+                      }
+                      className="input-field text-xs w-full resize-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-3 border-t border-white/10">
                 {/* Super Admin: Delete today's attendance record */}
                 {currentUser?.role === 'super_admin' &&
                 editModal.date === new Date().toISOString().split('T')[0] &&
@@ -776,10 +846,12 @@ export default function AttendanceRecapPage() {
                   </button>
                 </div>
               </div>
-            </form>
+                </form>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL KELOLA & HAPUS ABSENSI HARI INI (SUPER ADMIN ONLY) */}
       {todayModalOpen && (

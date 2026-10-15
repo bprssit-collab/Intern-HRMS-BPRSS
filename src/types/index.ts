@@ -6,7 +6,7 @@
 // DATABASE ENTITY TYPES
 // ============================================================
 
-export type UserRole = 'intern' | 'hrd' | 'super_admin';
+export type UserRole = 'intern' | 'intern_hrd' | 'staf_hrd' | 'kepala_hrd' | 'super_admin';
 export type InternStatus = 'active' | 'perbantuan' | 'completed';
 
 export interface User {
@@ -63,6 +63,9 @@ export interface Attendance {
   attendance_status?: AttendanceCode | null; // 'H', '1/2', 'I', 'S', 'A'
   is_perbantuan?: boolean;             // True if attended during perbantuan period
   notes?: string | null;               // Detailed notes/reasons (e.g. "Masuk kuliah & rapat prodi")
+  edit_count?: number;                 // How many times HRD manually edited the attendance code
+  last_edited_by?: string | null;      // users.id of the last editor
+  last_edited_at?: string | null;      // ISO datetime of the last manual edit
   created_at: string;
 }
 
@@ -127,6 +130,8 @@ export interface MatrixCell {
   is_perbantuan?: boolean;
   notes?: string | null;
   record_id?: string;
+  attended?: boolean;   // intern physically checked in (or has H / 1/2 code)
+  edit_count?: number;  // number of manual edits already applied
 }
 
 export interface MatrixRow {
@@ -158,6 +163,7 @@ export interface AttendanceRecapData {
   dateList: { date: string; dayName: string; is_weekend: boolean; weekLabel: string }[];
   weeks: { label: string; dateCount: number }[];
   departments: MatrixDepartmentGroup[];
+  currentRole?: UserRole;
 }
 
 // ============================================================

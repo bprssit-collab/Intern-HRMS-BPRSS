@@ -8,11 +8,12 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { requireRole } from '@/lib/auth';
 import { calculateAttendanceStatus } from '@/lib/payout-calc';
+import { INTERN_PORTAL_ROLES } from '@/lib/permissions';
 import { todayISO } from '@/lib/utils';
 
 export async function POST() {
   try {
-    const session = await requireRole('intern');
+    const session = await requireRole(INTERN_PORTAL_ROLES);
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Akses ditolak. Silakan login sebagai intern.' },

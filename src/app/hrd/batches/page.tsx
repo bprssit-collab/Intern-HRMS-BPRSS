@@ -22,6 +22,10 @@ export default function BatchesPage() {
     setError(null);
     try {
       const res = await fetch('/api/hrd/batches');
+      if (res.status === 403) {
+        window.location.href = '/hrd/dashboard';
+        return;
+      }
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'Gagal memuat data batch.');
@@ -46,10 +50,10 @@ export default function BatchesPage() {
       start_date: new Date().toISOString().split('T')[0],
       end_date: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 6 months
       is_active: false,
-      full_day_rate: 50000,
-      half_day_rate: 25000,
-      perbantuan_full_day_rate: 75000,
-      perbantuan_half_day_rate: 37500,
+      full_day_rate: 20000,
+      half_day_rate: 10000,
+      perbantuan_full_day_rate: 50000,
+      perbantuan_half_day_rate: 25000,
     });
     setFormError(null);
     setIsModalOpen(true);

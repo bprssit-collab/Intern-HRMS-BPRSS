@@ -83,8 +83,9 @@ export function PayoutTable({ data, period, settings }: PayoutTableProps) {
 
         {/* Rates Guide Note */}
         <div className="mb-4 text-xs text-gray-600 bg-gray-50 p-3 rounded border border-gray-200 flex flex-wrap justify-between gap-2">
-          <span>Tarif Normal: Full Day <strong>{formatIDR(settings.full_day_rate)}</strong> &bull; Half Day <strong>{formatIDR(settings.half_day_rate)}</strong></span>
-          <span>Tarif Perbantuan: Full Day <strong>{formatIDR(settings.perbantuan_full_day_rate || 75000)}</strong> &bull; Half Day <strong>{formatIDR(settings.perbantuan_half_day_rate || 37500)}</strong></span>
+          <span>Tarif Normal (Batch Aktif): Full Day <strong>{formatIDR(settings.full_day_rate)}</strong> &bull; Half Day <strong>{formatIDR(settings.half_day_rate)}</strong></span>
+          <span>Tarif Perbantuan (Batch Aktif): Full Day <strong>{formatIDR(settings.perbantuan_full_day_rate || 50000)}</strong> &bull; Half Day <strong>{formatIDR(settings.perbantuan_half_day_rate || 25000)}</strong></span>
+          <span className="w-full text-[11px] text-gray-500">Nominal tiap anak magang mengikuti tarif batch masing-masing (Manajemen Batch).</span>
         </div>
 
         {/* Data Table */}

@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { createAdminClient } from '@/lib/supabase';
 import { createSessionToken, getSessionCookieOptions } from '@/lib/auth';
+import { isValidRole } from '@/lib/permissions';
 import type { SessionUser } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -44,6 +45,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Email atau password salah.' },
         { status: 401 }
+      );
+    }
+
+    if (!isValidRole(user.role)) {
+      return NextResponse.json(
+        { success: false, error: 'Role akun tidak valid. Hubungi Super Admin.' },
+        { status: 403 }
       );
     }
 

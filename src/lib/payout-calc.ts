@@ -36,16 +36,25 @@ export function calculateAttendanceStatus(
   return hoursWorked > FULL_DAY_HOURS_THRESHOLD ? 'full_day' : 'half_day';
 }
 
+/** Pocket-money rates (IDR) of one batch. */
+export interface PayoutRates {
+  full: number;
+  half: number;
+  perbantuanFull: number;
+  perbantuanHalf: number;
+}
+
 /**
  * Calculates payout summaries for all interns within a date range.
  * Distinguishes between Regular Internship Days and Perbantuan (Extended Duty) Days.
  * 
  * @param attendanceRecords - All attendance records within date range
  * @param users - Map of user ID to User object
- * @param fullDayRate - Regular rate per full day (IDR)
- * @param halfDayRate - Regular rate per half day (IDR)
- * @param perbantuanFullDayRate - Perbantuan rate per full day (IDR)
- * @param perbantuanHalfDayRate - Perbantuan rate per half day (IDR)
+ * @param fullDayRate - Fallback regular rate per full day (IDR)
+ * @param halfDayRate - Fallback regular rate per half day (IDR)
+ * @param perbantuanFullDayRate - Fallback perbantuan rate per full day (IDR)
+ * @param perbantuanHalfDayRate - Fallback perbantuan rate per half day (IDR)
+ * @param ratesByUser - Optional per-user rates (taken from each intern's batch); overrides the fallback
  * @returns Array of PayoutSummary, one per intern
  */
 export function calculatePayouts(
@@ -53,8 +62,9 @@ export function calculatePayouts(
   users: Map<string, User>,
   fullDayRate: number,
   halfDayRate: number,
-  perbantuanFullDayRate: number = 75000,
-  perbantuanHalfDayRate: number = 37500
+  perbantuanFullDayRate: number = 50000,
+  perbantuanHalfDayRate: number = 25000,
+  ratesByUser?: Map<string, PayoutRates>
 ): PayoutSummary[] {
   // Group attendance records by user_id
   const grouped = new Map<
@@ -105,13 +115,19 @@ export function calculatePayouts(
 
   for (const [userId, counts] of grouped.entries()) {
     const user = users.get(userId);
-    if (!user || user.role !== 'intern') continue; // Safety check
+    if (!user || (user.role !== 'intern' && user.role !== 'intern_hrd')) continue; // Safety check
+
+    const userRates = ratesByUser?.get(userId);
+    const fullRate = userRates?.full ?? fullDayRate;
+    const halfRate = userRates?.half ?? halfDayRate;
+    const pFullRate = userRates?.perbantuanFull ?? perbantuanFullDayRate;
+    const pHalfRate = userRates?.perbantuanHalf ?? perbantuanHalfDayRate;
 
     const normalAmount =
-      counts.normalFull * fullDayRate + counts.normalHalf * halfDayRate;
+      counts.normalFull * fullRate + counts.normalHalf * halfRate;
     const perbantuanAmount =
-      counts.perbantuanFull * perbantuanFullDayRate +
-      counts.perbantuanHalf * perbantuanHalfDayRate;
+      counts.perbantuanFull * pFullRate +
+      counts.perbantuanHalf * pHalfRate;
     const totalAmount = normalAmount + perbantuanAmount;
 
     summaries.push({
@@ -125,10 +141,10 @@ export function calculatePayouts(
       perbantuan_half_count: counts.perbantuanHalf,
       normal_amount: normalAmount,
       perbantuan_amount: perbantuanAmount,
-      full_day_rate: fullDayRate,
-      half_day_rate: halfDayRate,
-      perbantuan_full_rate: perbantuanFullDayRate,
-      perbantuan_half_rate: perbantuanHalfDayRate,
+      full_day_rate: fullRate,
+      half_day_rate: halfRate,
+      perbantuan_full_rate: pFullRate,
+      perbantuan_half_rate: pHalfRate,
       total_amount: totalAmount,
     });
   }

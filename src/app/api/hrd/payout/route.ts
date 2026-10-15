@@ -1,24 +1,44 @@
 /**
  * GET /api/hrd/payout
- * HRD-ONLY endpoint. Returns payout summary for all interns in a date range.
- * Requires 'hrd' role. Never accessible to interns.
- * 
+ * Manager-only endpoint (staf_hrd, kepala_hrd, super_admin). Returns the payout summary for
+ * all interns in a date range. NOT accessible to intern_hrd or interns.
+ *
+ * Rates come from each intern's own batch (Manajemen Batch).
+ *
  * Query params: startDate (YYYY-MM-DD), endDate (YYYY-MM-DD)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { requireRole } from '@/lib/auth';
-import { calculatePayouts } from '@/lib/payout-calc';
-import type { User, Attendance } from '@/types';
+import { MANAGER_ROLES, ATTENDEE_ROLES } from '@/lib/permissions';
+import { calculatePayouts, type PayoutRates } from '@/lib/payout-calc';
+import type { User, Attendance, Batch } from '@/types';
+
+/** Rates used only when an intern has no batch and there is no active batch either. */
+const FALLBACK_RATES: PayoutRates = {
+  full: 20000,
+  half: 10000,
+  perbantuanFull: 50000,
+  perbantuanHalf: 25000,
+};
+
+function batchToRates(batch: Batch): PayoutRates {
+  return {
+    full: batch.full_day_rate,
+    half: batch.half_day_rate,
+    perbantuanFull: batch.perbantuan_full_day_rate,
+    perbantuanHalf: batch.perbantuan_half_day_rate,
+  };
+}
 
 export async function GET(request: NextRequest) {
   try {
-    // Strict HRD-only access
-    const session = await requireRole('hrd');
+    // Strict manager-only access (intern_hrd is excluded)
+    const session = await requireRole(MANAGER_ROLES);
     if (!session) {
       return NextResponse.json(
-        { success: false, error: 'Akses ditolak. Hanya HRD yang dapat melihat data payout.' },
+        { success: false, error: 'Akses ditolak. Hanya Staf HRD, Kepala HRD, dan Super Admin yang dapat melihat data uang saku.' },
         { status: 403 }
       );
     }
@@ -46,52 +66,56 @@ export async function GET(request: NextRequest) {
 
     if (attendanceError) throw attendanceError;
 
-    // Fetch all intern users for name lookup
+    // Fetch all attending interns (intern + intern_hrd) for name lookup
     const { data: internUsers, error: usersError } = await supabase
       .from('users')
-      .select('id, name, email, role, department, status')
-      .eq('role', 'intern');
+      .select('id, name, email, role, department, status, batch_id')
+      .in('role', ATTENDEE_ROLES);
 
     if (usersError) throw usersError;
 
-    // Fetch current settings for rates
-    const { data: settings, error: settingsError } = await supabase
-      .from('settings')
-      .select('full_day_rate, half_day_rate, perbantuan_full_day_rate, perbantuan_half_day_rate')
-      .single();
+    // Fetch batches (rates are defined per batch)
+    const { data: batchRows, error: batchError } = await supabase
+      .from('batches')
+      .select('*');
 
-    if (settingsError || !settings) {
-      return NextResponse.json(
-        { success: false, error: 'Pengaturan tarif tidak ditemukan.' },
-        { status: 404 }
-      );
-    }
+    if (batchError) throw batchError;
 
-    // Build user lookup map
+    const batches = (batchRows as Batch[]) ?? [];
+    const activeBatch = batches.find((b) => b.is_active) ?? batches[0];
+    const fallbackRates = activeBatch ? batchToRates(activeBatch) : FALLBACK_RATES;
+    const batchById = new Map<string, Batch>(batches.map((b) => [b.id, b]));
+
+    // Build user lookup + per-user rate maps
     const userMap = new Map<string, User>();
-    for (const user of (internUsers ?? [])) {
+    const ratesByUser = new Map<string, PayoutRates>();
+    for (const user of (internUsers ?? []) as (User & { batch_id?: string })[]) {
       userMap.set(user.id, user as User);
+      const batch = user.batch_id ? batchById.get(user.batch_id) : undefined;
+      ratesByUser.set(user.id, batch ? batchToRates(batch) : fallbackRates);
     }
 
     // Calculate payouts
     const payouts = calculatePayouts(
       (attendanceRecords as Attendance[]) ?? [],
       userMap,
-      settings.full_day_rate,
-      settings.half_day_rate,
-      settings.perbantuan_full_day_rate ?? 75000,
-      settings.perbantuan_half_day_rate ?? 37500
+      fallbackRates.full,
+      fallbackRates.half,
+      fallbackRates.perbantuanFull,
+      fallbackRates.perbantuanHalf,
+      ratesByUser
     );
 
     return NextResponse.json({
       success: true,
       data: {
         payouts,
+        // Rates of the active batch, shown as a reference note on the report
         settings: {
-          full_day_rate: settings.full_day_rate,
-          half_day_rate: settings.half_day_rate,
-          perbantuan_full_day_rate: settings.perbantuan_full_day_rate ?? 75000,
-          perbantuan_half_day_rate: settings.perbantuan_half_day_rate ?? 37500,
+          full_day_rate: fallbackRates.full,
+          half_day_rate: fallbackRates.half,
+          perbantuan_full_day_rate: fallbackRates.perbantuanFull,
+          perbantuan_half_day_rate: fallbackRates.perbantuanHalf,
         },
         period: { startDate, endDate },
       },

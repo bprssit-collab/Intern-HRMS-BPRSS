@@ -15,6 +15,10 @@ export default function SettingsPage() {
     async function loadSettings() {
       try {
         const res = await fetch('/api/settings');
+        if (res.status === 403) {
+          window.location.href = '/hrd/dashboard';
+          return;
+        }
         const json = await res.json();
         if (json.success) {
           setSettings(json.data);
@@ -43,10 +47,14 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
       });
+      if (res.status === 403) {
+        window.location.href = '/hrd/dashboard';
+        return;
+      }
       const json = await res.json();
       
       if (res.ok && json.success) {
-        setMessage({ type: 'success', text: 'Pengaturan berhasil disimpan!' });
+        setMessage({ type: 'success', text: 'Pengaturan lokasi kantor berhasil disimpan!' });
         setSettings(json.data);
       } else {
         throw new Error(json.error || 'Gagal menyimpan pengaturan.');
@@ -107,8 +115,8 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold text-white mb-1">Pengaturan Sistem</h1>
-        <p className="text-slate-400">Konfigurasi lokasi kantor dan parameter perhitungan uang saku.</p>
+        <h1 className="text-2xl font-bold text-white mb-1">Pengaturan Lokasi & Radius Absensi</h1>
+        <p className="text-slate-400">Konfigurasi koordinat GPS kantor dan batas radius maksimal absensi.</p>
       </div>
 
       {message && (
@@ -186,61 +194,14 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Rate Settings */}
-          <div className="glass-card p-6">
-            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-amber-400" />
-              Tarif Uang Saku
-            </h2>
-            <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg mb-6">
-              <p className="text-sm text-amber-400/90">
-                Data tarif uang saku bersifat rahasia dan hanya dapat diakses oleh HRD.
-                Sistem otomatis menghitung Full Day jika intern bekerja &gt; 6 jam.
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-300">Tarif Full Day (Rp)</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">Rp</span>
-                  <input
-                    type="number"
-                    name="full_day_rate"
-                    value={settings.full_day_rate}
-                    onChange={handleChange}
-                    className="input-field pl-10"
-                    required
-                    min="0"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-300">Tarif Half Day (Rp)</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">Rp</span>
-                  <input
-                    type="number"
-                    name="half_day_rate"
-                    value={settings.half_day_rate}
-                    onChange={handleChange}
-                    className="input-field pl-10"
-                    required
-                    min="0"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-4">
+          <div className="flex justify-end pt-2">
             <button 
               type="submit" 
               disabled={isSaving}
               className="btn-primary"
             >
               {isSaving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
-              Simpan Pengaturan
+              Simpan Pengaturan Lokasi
             </button>
           </div>
         </form>

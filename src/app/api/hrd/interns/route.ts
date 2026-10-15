@@ -1,31 +1,37 @@
 /**
  * /api/hrd/interns
- * HRD-only endpoint for viewing and managing intern list, departments, and status (active/perbantuan/completed).
+ * HRD-portal endpoint (intern_hrd, staf_hrd, kepala_hrd, super_admin) for viewing and managing
+ * the intern list, departments, and status (active/perbantuan/completed).
+ * Lists accounts with role 'intern' and 'intern_hrd' (both are interns who attend).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { requireRole } from '@/lib/auth';
+import { HRD_PORTAL_ROLES, ATTENDEE_ROLES } from '@/lib/permissions';
 import bcrypt from 'bcryptjs';
-import type { User, Batch } from '@/types';
+
+const forbidden = () =>
+  NextResponse.json(
+    { success: false, error: 'Akses ditolak. Khusus HRD.' },
+    { status: 403 }
+  );
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole('hrd');
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: 'Akses ditolak. Khusus HRD.' },
-        { status: 403 }
-      );
-    }
+    const session = await requireRole(HRD_PORTAL_ROLES);
+    if (!session) return forbidden();
 
     const { searchParams } = new URL(request.url);
     const batchId = searchParams.get('batchId');
 
     const supabase = createAdminClient();
 
-    // Fetch batches for batch map
-    const { data: batchesData } = await supabase.from('batches').select('id, batch_number, name');
+    // Fetch batches for batch map (is_active is used by the UI to pick the default filter)
+    const { data: batchesData } = await supabase
+      .from('batches')
+      .select('id, batch_number, name, is_active')
+      .order('batch_number', { ascending: false });
     const batchMap = new Map<string, string>();
     for (const b of (batchesData || [])) {
       batchMap.set(b.id, b.name);
@@ -34,7 +40,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('users')
       .select('id, name, email, role, department, batch_id, status, face_descriptor, created_at')
-      .eq('role', 'intern');
+      .in('role', ATTENDEE_ROLES);
 
     if (batchId) {
       query = query.eq('batch_id', batchId);
@@ -47,9 +53,10 @@ export async function GET(request: NextRequest) {
       id: u.id,
       name: u.name,
       email: u.email,
+      role: u.role,
       department: u.department || 'Umum',
       batch_id: u.batch_id,
-      batch_name: u.batch_id ? batchMap.get(u.batch_id) || 'Batch 15' : 'Batch 15',
+      batch_name: u.batch_id ? batchMap.get(u.batch_id) || '-' : '-',
       status: u.status || 'active',
       has_face: Array.isArray(u.face_descriptor) && u.face_descriptor.length > 0,
       created_at: u.created_at,
@@ -77,13 +84,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole('hrd');
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: 'Akses ditolak. Khusus HRD.' },
-        { status: 403 }
-      );
-    }
+    const session = await requireRole(HRD_PORTAL_ROLES);
+    if (!session) return forbidden();
 
     const body = await request.json();
     const { name, email, department, batch_id, status, password } = body;
@@ -146,13 +148,8 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const session = await requireRole('hrd');
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: 'Akses ditolak. Khusus HRD.' },
-        { status: 403 }
-      );
-    }
+    const session = await requireRole(HRD_PORTAL_ROLES);
+    if (!session) return forbidden();
 
     const body = await request.json();
     const { id, name, email, department, batch_id, status } = body;
@@ -165,6 +162,20 @@ export async function PUT(request: NextRequest) {
     }
 
     const supabase = createAdminClient();
+
+    // This endpoint only manages intern accounts - never HRD/admin accounts.
+    const { data: target } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', id)
+      .single();
+
+    if (!target || !ATTENDEE_ROLES.includes(target.role)) {
+      return NextResponse.json(
+        { success: false, error: 'Data anak magang tidak ditemukan.' },
+        { status: 404 }
+      );
+    }
 
     const payload: any = {};
     if (name) payload.name = name.trim();

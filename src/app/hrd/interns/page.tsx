@@ -53,6 +53,7 @@ export default function InternsPage() {
   const [search, setSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
+  const [selectedBatchId, setSelectedBatchId] = useState<string>('ALL');
 
   // Super Admin state & feedback
   const [currentUser, setCurrentUser] = useState<{ id: string; role: string; name: string } | null>(null);
@@ -76,7 +77,15 @@ export default function InternsPage() {
         throw new Error(json.error || 'Gagal memuat data anak magang.');
       }
       setInterns(json.data || []);
-      setBatches(json.batches || []);
+      const bList = json.batches || [];
+      setBatches(bList);
+
+      // Default to active batch on initial load
+      setSelectedBatchId((prev) => {
+        if (prev !== 'ALL') return prev;
+        const active = bList.find((b: any) => b.is_active);
+        return active ? active.id : (bList[0]?.id || 'ALL');
+      });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -192,7 +201,8 @@ export default function InternsPage() {
       i.department.toLowerCase().includes(search.toLowerCase());
     const matchesDept = selectedDept === 'ALL' || i.department === selectedDept;
     const matchesStatus = selectedStatus === 'ALL' || i.status === selectedStatus;
-    return matchesSearch && matchesDept && matchesStatus;
+    const matchesBatch = selectedBatchId === 'ALL' || i.batch_id === selectedBatchId;
+    return matchesSearch && matchesDept && matchesStatus && matchesBatch;
   });
 
   return (
@@ -260,7 +270,20 @@ export default function InternsPage() {
           />
         </div>
 
-        <div className="flex gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <select
+            value={selectedBatchId}
+            onChange={(e) => setSelectedBatchId(e.target.value)}
+            className="input-field text-sm !w-auto"
+          >
+            <option value="ALL">Semua Batch</option>
+            {batches.map((b: any) => (
+              <option key={b.id} value={b.id}>
+                {b.name} {b.is_active ? '(Aktif)' : ''}
+              </option>
+            ))}
+          </select>
+
           <select
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}

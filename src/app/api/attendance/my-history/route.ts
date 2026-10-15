@@ -8,10 +8,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { requireRole } from '@/lib/auth';
+import { INTERN_PORTAL_ROLES } from '@/lib/permissions';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole('intern');
+    const session = await requireRole(INTERN_PORTAL_ROLES);
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Akses ditolak.' },

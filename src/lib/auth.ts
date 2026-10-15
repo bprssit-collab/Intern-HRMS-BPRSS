@@ -6,6 +6,7 @@
 
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase';
+import { isValidRole } from '@/lib/permissions';
 import type { SessionUser } from '@/types';
 
 export const SESSION_COOKIE = 'hrms_session';
@@ -49,7 +50,9 @@ export function decodeSessionToken(token: string): SessionUser | null {
 
 /**
  * Gets the current session from the request cookies.
- * Returns null if not logged in or session expired.
+ * The cookie only proves identity; the user's current role/profile is re-read from the
+ * database so role changes and deleted accounts apply immediately.
+ * Returns null if not logged in, session expired, or the account no longer exists.
  */
 export async function getSession(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
@@ -57,7 +60,31 @@ export async function getSession(): Promise<SessionUser | null> {
   
   if (!token) return null;
   
-  return decodeSessionToken(token);
+  const decoded = decodeSessionToken(token);
+  if (!decoded) return null;
+
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, email, role, department, batch_id')
+      .eq('id', decoded.id)
+      .single();
+
+    if (error || !data || !isValidRole(data.role)) return null;
+
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      department: data.department ?? undefined,
+      batch_id: data.batch_id ?? undefined,
+    };
+  } catch (err) {
+    console.error('[auth] Failed to verify session user:', err);
+    return null;
+  }
 }
 
 /**
@@ -78,8 +105,8 @@ export function getSessionCookieOptions(token: string) {
 }
 
 /**
- * Validates that the current session belongs to the required role.
- * Super Admin automatically inherits all HRD permissions.
+ * Validates that the current session belongs to one of the allowed roles.
+ * Returns the session when allowed, otherwise null.
  */
 export async function requireRole(
   requiredRole: import('@/types').UserRole | import('@/types').UserRole[]
@@ -87,11 +114,7 @@ export async function requireRole(
   const session = await getSession();
   if (!session) return null;
 
-  const allowed = Array.isArray(requiredRole) ? [...requiredRole] : [requiredRole];
-  // super_admin automatically satisfies 'hrd' requirements
-  if (allowed.includes('hrd') && !allowed.includes('super_admin')) {
-    allowed.push('super_admin');
-  }
+  const allowed = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
 
   if (!allowed.includes(session.role)) {
     return null;

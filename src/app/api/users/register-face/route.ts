@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { getSession } from '@/lib/auth';
+import { INTERN_PORTAL_ROLES } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -18,6 +19,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' },
         { status: 401 }
+      );
+    }
+
+    if (!INTERN_PORTAL_ROLES.includes(session.role)) {
+      return NextResponse.json(
+        { success: false, error: 'Akun Anda tidak memerlukan pendaftaran wajah.' },
+        { status: 403 }
       );
     }
 
@@ -40,6 +48,25 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createAdminClient();
+
+    // One-time registration: block overwrite when a face is already stored.
+    // A Super Admin must delete the existing data first (/api/admin/reset-face).
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('face_descriptor')
+      .eq('id', session.id)
+      .single();
+
+    if (Array.isArray(existingUser?.face_descriptor) && existingUser.face_descriptor.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Wajah sudah didaftarkan. Jika ingin mengubah, silakan hubungi admin.',
+          already_registered: true,
+        },
+        { status: 409 }
+      );
+    }
 
     const { error } = await supabase
       .from('users')

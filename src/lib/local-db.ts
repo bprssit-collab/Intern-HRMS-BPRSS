@@ -20,7 +20,7 @@ export interface DatabaseSchema {
     name: string;
     email: string;
     password_hash: string;
-    role: 'intern' | 'hrd' | 'super_admin';
+    role: 'intern' | 'intern_hrd' | 'staf_hrd' | 'kepala_hrd' | 'super_admin';
     department?: string;
     batch_id?: string;
     status?: 'active' | 'perbantuan' | 'completed';
@@ -51,6 +51,9 @@ export interface DatabaseSchema {
     attendance_status?: 'H' | '1/2' | 'I' | 'S' | 'A' | null;
     is_perbantuan?: boolean;
     notes?: string | null;
+    edit_count?: number;
+    last_edited_by?: string | null;
+    last_edited_at?: string | null;
     created_at: string;
   }>;
 }
@@ -83,8 +86,8 @@ const INITIAL_DATA: DatabaseSchema = {
       id: BATCH_15_ID,
       batch_number: 15,
       name: 'Batch 15',
-      start_date: '2026-08-01',
-      end_date: '2027-01-31', // 6 months range
+      start_date: '2026-09-01',
+      end_date: '2027-01-15',
       is_active: true,
       full_day_rate: 50000,
       half_day_rate: 25000,
@@ -119,11 +122,22 @@ const INITIAL_DATA: DatabaseSchema = {
       created_at: new Date().toISOString(),
     },
     {
-      id: '11111111-1111-1111-1111-111111111111',
-      name: 'Admin HRD',
-      email: 'hrd@bprsehat.com',
-      password_hash: '$2b$10$.gceNqbyuUsaK3laNUpYX.2GVYHS2/hpSxkoSMij9XHsNVVqfV4x.', // admin123
-      role: 'hrd',
+      id: '11111111-1111-1111-1111-111111111112',
+      name: 'Kepala HRD',
+      email: 'kepala.hrd@bprsehat.com',
+      password_hash: '$2b$10$0r5oM7KchVHsl6kwx7CuOOgbs0riSKY1QZKIsG2mGFWikGPw3B1D6', // kepala123
+      role: 'kepala_hrd',
+      department: 'HRD',
+      status: 'active',
+      face_descriptor: null,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: '11111111-1111-1111-1111-111111111113',
+      name: 'Staf HRD',
+      email: 'staf.hrd@bprsehat.com',
+      password_hash: '$2b$10$zAfmC/NvC.5LMM5qijmmyu/H9APZnd436XtQ72f.5FgkWEPsPmOBW', // staf123
+      role: 'staf_hrd',
       department: 'HRD',
       status: 'active',
       face_descriptor: null,
@@ -290,6 +304,31 @@ function readDb(): DatabaseSchema {
       db.attendance = generateSeedAttendance();
       modified = true;
     }
+
+    // Migration v2: legacy 'hrd' role was replaced by 'staf_hrd' / 'kepala_hrd'.
+    const hasLegacyHrd = db.users.some((u) => (u.role as string) === 'hrd');
+    if (hasLegacyHrd) {
+      db.users = db.users.filter((u) => (u.role as string) !== 'hrd');
+      modified = true;
+    }
+    for (const seedUser of INITIAL_DATA.users) {
+      if (
+        (seedUser.role === 'kepala_hrd' || seedUser.role === 'staf_hrd') &&
+        !db.users.some((u) => u.email === seedUser.email) &&
+        (hasLegacyHrd || !db.users.some((u) => u.role === seedUser.role))
+      ) {
+        db.users.push({ ...seedUser });
+        modified = true;
+      }
+    }
+
+    // Migration v2: Batch 15 internship period is 1 Sep 2026 - 15 Jan 2027.
+    const batch15 = db.batches.find((b) => b.batch_number === 15);
+    if (batch15 && batch15.start_date === '2026-08-01' && batch15.end_date === '2027-01-31') {
+      batch15.start_date = '2026-09-01';
+      batch15.end_date = '2027-01-15';
+      modified = true;
+    }
     if (modified) {
       writeDb(db);
     }
@@ -366,6 +405,11 @@ export class LocalQueryBuilder<T = any> {
 
   neq(column: string, value: any) {
     this.filters.push((row) => row[column] !== value);
+    return this;
+  }
+
+  in(column: string, values: any[]) {
+    this.filters.push((row) => values.includes(row[column]));
     return this;
   }
 
@@ -468,6 +512,27 @@ export class LocalQueryBuilder<T = any> {
         data: this.isSingle && !res ? null : (Array.isArray(res) ? res.map((r) => this.filterColumns(r, this.selectCols)) : this.filterColumns(res, this.selectCols)),
         error: this.isSingle && !res ? { message: 'Row not found', code: 'PGRST116' } : null,
       };
+    }
+
+    if (this.action === 'delete') {
+      const remaining: any[] = [];
+      const removed: any[] = [];
+      for (const row of rows) {
+        if (this.filters.every((f) => f(row))) {
+          removed.push(row);
+        } else {
+          remaining.push(row);
+        }
+      }
+      (db as any)[this.table] = remaining;
+
+      // Mimic ON DELETE CASCADE: deleting a user also removes their attendance.
+      if (this.table === 'users') {
+        const removedIds = new Set(removed.map((r) => r.id));
+        db.attendance = db.attendance.filter((a) => !removedIds.has(a.user_id));
+      }
+      writeDb(db);
+      return { data: removed.map((r) => this.filterColumns(r, this.selectCols)), error: null };
     }
 
     // SELECT

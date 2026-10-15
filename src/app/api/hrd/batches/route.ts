@@ -6,14 +6,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { requireRole } from '@/lib/auth';
+import { MANAGER_ROLES } from '@/lib/permissions';
 import type { Batch } from '@/types';
+
+/** Default pocket-money rates (IDR) used when a batch is created without explicit values. */
+const DEFAULT_RATES = {
+  full_day_rate: 20000,
+  half_day_rate: 10000,
+  perbantuan_full_day_rate: 50000,
+  perbantuan_half_day_rate: 25000,
+};
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole('hrd');
+    const session = await requireRole(MANAGER_ROLES);
     if (!session) {
       return NextResponse.json(
-        { success: false, error: 'Akses ditolak. Khusus HRD.' },
+        { success: false, error: 'Akses ditolak. Khusus Staf HRD, Kepala HRD, dan Super Admin.' },
         { status: 403 }
       );
     }
@@ -41,10 +50,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole('hrd');
+    const session = await requireRole(MANAGER_ROLES);
     if (!session) {
       return NextResponse.json(
-        { success: false, error: 'Akses ditolak. Khusus HRD.' },
+        { success: false, error: 'Akses ditolak. Khusus Staf HRD, Kepala HRD, dan Super Admin.' },
         { status: 403 }
       );
     }
@@ -88,10 +97,10 @@ export async function POST(request: NextRequest) {
       start_date: String(start_date),
       end_date: String(end_date),
       is_active: Boolean(is_active),
-      full_day_rate: Number(full_day_rate || 50000),
-      half_day_rate: Number(half_day_rate || 25000),
-      perbantuan_full_day_rate: Number(perbantuan_full_day_rate || 75000),
-      perbantuan_half_day_rate: Number(perbantuan_half_day_rate || 37500),
+      full_day_rate: Number(full_day_rate || DEFAULT_RATES.full_day_rate),
+      half_day_rate: Number(half_day_rate || DEFAULT_RATES.half_day_rate),
+      perbantuan_full_day_rate: Number(perbantuan_full_day_rate || DEFAULT_RATES.perbantuan_full_day_rate),
+      perbantuan_half_day_rate: Number(perbantuan_half_day_rate || DEFAULT_RATES.perbantuan_half_day_rate),
     };
 
     let result;
