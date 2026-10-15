@@ -148,19 +148,19 @@ VALUES
   ('00000000-0000-0000-0000-000000000099', 'Super Admin', 'superadmin@bprsehat.com', '$2b$10$iyo1ft6DWz2EphSgQ1xmc.vHCb18X8DXc4QhKd0QD7K1bS5tFF4v2', 'super_admin', 'IT & Management', NULL, 'active'),
   ('11111111-1111-1111-1111-111111111111', 'Admin HRD', 'hrd@bprsehat.com', '$2b$10$.gceNqbyuUsaK3laNUpYX.2GVYHS2/hpSxkoSMij9XHsNVVqfV4x.', 'hrd', 'HRD', NULL, 'active'),
   ('22222222-2222-2222-2222-222222222222', 'Budi Santoso', 'budi@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'CS', 'b1500000-0000-0000-0000-000000000015', 'active'),
-  ('u0100000-0000-0000-0000-000000000001', 'Alfiani Nutriana Ayu', 'alfiani@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'CS', 'b1500000-0000-0000-0000-000000000015', 'active'),
-  ('u0100000-0000-0000-0000-000000000002', 'Elsya Yunita Simangunsong', 'elsya@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Teller UNPAM', 'b1500000-0000-0000-0000-000000000015', 'active'),
-  ('u0100000-0000-0000-0000-000000000003', 'Puan Maharani', 'puan@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Teller UNPAM', 'b1500000-0000-0000-0000-000000000015', 'active'),
-  ('u0100000-0000-0000-0000-000000000004', 'Novita Al Fitri Daeng', 'novita@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Teller UNPAM', 'b1500000-0000-0000-0000-000000000015', 'active'),
-  ('u0100000-0000-0000-0000-000000000005', 'Felisitas Erselin', 'felisitas@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'SDM', 'b1500000-0000-0000-0000-000000000015', 'active'),
-  ('u0100000-0000-0000-0000-000000000006', 'Listiyani', 'listiyani@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Accounting', 'b1500000-0000-0000-0000-000000000015', 'active'),
-  ('u0100000-0000-0000-0000-000000000007', 'Mustika Wulan', 'mustika@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Kepatuhan', 'b1500000-0000-0000-0000-000000000015', 'active'),
-  ('u0100000-0000-0000-0000-000000000008', 'Muhammad Rizq Noval', 'rizq@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Kepatuhan', 'b1500000-0000-0000-0000-000000000015', 'active'),
-  ('u0100000-0000-0000-0000-000000000009', 'Eki Ramdani Sopyana', 'eki@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Kredit', 'b1500000-0000-0000-0000-000000000015', 'active'),
-  ('u0100000-0000-0000-0000-000000000010', 'Nesya Chintiya Bella', 'nesya@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Kredit', 'b1500000-0000-0000-0000-000000000015', 'active'),
-  ('u0100000-0000-0000-0000-000000000011', 'Bintang Reira Putri Hanafi', 'bintang@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Audit', 'b1500000-0000-0000-0000-000000000015', 'perbantuan'),
-  ('u0100000-0000-0000-0000-000000000012', 'Rosmita Fathia Hidayat', 'rosmita@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Social Media', 'b1500000-0000-0000-0000-000000000015', 'active'),
-  ('u0100000-0000-0000-0000-000000000013', 'Valdis Sandya Akhjan', 'valdis@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Social Media', 'b1500000-0000-0000-0000-000000000015', 'perbantuan')
+  ('a0100000-0000-0000-0000-000000000001', 'Alfiani Nutriana Ayu', 'alfiani@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'CS', 'b1500000-0000-0000-0000-000000000015', 'active'),
+  ('a0100000-0000-0000-0000-000000000002', 'Elsya Yunita Simangunsong', 'elsya@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Teller UNPAM', 'b1500000-0000-0000-0000-000000000015', 'active'),
+  ('a0100000-0000-0000-0000-000000000003', 'Puan Maharani', 'puan@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Teller UNPAM', 'b1500000-0000-0000-0000-000000000015', 'active'),
+  ('a0100000-0000-0000-0000-000000000004', 'Novita Al Fitri Daeng', 'novita@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Teller UNPAM', 'b1500000-0000-0000-0000-000000000015', 'active'),
+  ('a0100000-0000-0000-0000-000000000005', 'Felisitas Erselin', 'felisitas@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'SDM', 'b1500000-0000-0000-0000-000000000015', 'active'),
+  ('a0100000-0000-0000-0000-000000000006', 'Listiyani', 'listiyani@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Accounting', 'b1500000-0000-0000-0000-000000000015', 'active'),
+  ('a0100000-0000-0000-0000-000000000007', 'Mustika Wulan', 'mustika@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Kepatuhan', 'b1500000-0000-0000-0000-000000000015', 'active'),
+  ('a0100000-0000-0000-0000-000000000008', 'Muhammad Rizq Noval', 'rizq@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Kepatuhan', 'b1500000-0000-0000-0000-000000000015', 'active'),
+  ('a0100000-0000-0000-0000-000000000009', 'Eki Ramdani Sopyana', 'eki@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Kredit', 'b1500000-0000-0000-0000-000000000015', 'active'),
+  ('a0100000-0000-0000-0000-000000000010', 'Nesya Chintiya Bella', 'nesya@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Kredit', 'b1500000-0000-0000-0000-000000000015', 'active'),
+  ('a0100000-0000-0000-0000-000000000011', 'Bintang Reira Putri Hanafi', 'bintang@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Audit', 'b1500000-0000-0000-0000-000000000015', 'perbantuan'),
+  ('a0100000-0000-0000-0000-000000000012', 'Rosmita Fathia Hidayat', 'rosmita@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Social Media', 'b1500000-0000-0000-0000-000000000015', 'active'),
+  ('a0100000-0000-0000-0000-000000000013', 'Valdis Sandya Akhjan', 'valdis@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'Social Media', 'b1500000-0000-0000-0000-000000000015', 'perbantuan')
 ON CONFLICT (email) DO UPDATE SET
   name = EXCLUDED.name,
   role = EXCLUDED.role,
@@ -172,41 +172,41 @@ ON CONFLICT (email) DO UPDATE SET
 -- Alfiani Nutriana Ayu (05/10 izin kuliah, 28/09 setengah hari)
 INSERT INTO attendance (user_id, date, status, attendance_status, is_perbantuan, notes)
 VALUES
-  ('u0100000-0000-0000-0000-000000000001', '2026-09-28', 'half_day', '1/2', false, 'Pulang lebih awal untuk bimbingan'),
-  ('u0100000-0000-0000-0000-000000000001', '2026-09-29', 'full_day', 'H', false, NULL),
-  ('u0100000-0000-0000-0000-000000000001', '2026-09-30', 'full_day', 'H', false, NULL),
-  ('u0100000-0000-0000-0000-000000000001', '2026-10-01', 'full_day', 'H', false, NULL),
-  ('u0100000-0000-0000-0000-000000000001', '2026-10-02', 'full_day', 'H', false, NULL),
-  ('u0100000-0000-0000-0000-000000000001', '2026-10-05', 'pending',  'I', false, '05/10 masuk kuliah dan ada rapat prodi'),
-  ('u0100000-0000-0000-0000-000000000001', '2026-10-06', 'full_day', 'H', false, NULL),
-  ('u0100000-0000-0000-0000-000000000001', '2026-10-07', 'full_day', 'H', false, NULL),
-  ('u0100000-0000-0000-0000-000000000001', '2026-10-08', 'full_day', 'H', false, NULL)
+  ('a0100000-0000-0000-0000-000000000001', '2026-09-28', 'half_day', '1/2', false, 'Pulang lebih awal untuk bimbingan'),
+  ('a0100000-0000-0000-0000-000000000001', '2026-09-29', 'full_day', 'H', false, NULL),
+  ('a0100000-0000-0000-0000-000000000001', '2026-09-30', 'full_day', 'H', false, NULL),
+  ('a0100000-0000-0000-0000-000000000001', '2026-10-01', 'full_day', 'H', false, NULL),
+  ('a0100000-0000-0000-0000-000000000001', '2026-10-02', 'full_day', 'H', false, NULL),
+  ('a0100000-0000-0000-0000-000000000001', '2026-10-05', 'pending',  'I', false, '05/10 masuk kuliah dan ada rapat prodi'),
+  ('a0100000-0000-0000-0000-000000000001', '2026-10-06', 'full_day', 'H', false, NULL),
+  ('a0100000-0000-0000-0000-000000000001', '2026-10-07', 'full_day', 'H', false, NULL),
+  ('a0100000-0000-0000-0000-000000000001', '2026-10-08', 'full_day', 'H', false, NULL)
 ON CONFLICT (user_id, date) DO NOTHING;
 
 -- Novita Al Fitri Daeng (30/09 sakit, 05/10 izin)
 INSERT INTO attendance (user_id, date, status, attendance_status, is_perbantuan, notes)
 VALUES
-  ('u0100000-0000-0000-0000-000000000004', '2026-09-28', 'full_day', 'H', false, NULL),
-  ('u0100000-0000-0000-0000-000000000004', '2026-09-29', 'full_day', 'H', false, NULL),
-  ('u0100000-0000-0000-0000-000000000004', '2026-09-30', 'pending',  'S', false, '30/09 surat dokter terlampir'),
-  ('u0100000-0000-0000-0000-000000000004', '2026-10-01', 'full_day', 'H', false, NULL),
-  ('u0100000-0000-0000-0000-000000000004', '2026-10-02', 'full_day', 'H', false, NULL),
-  ('u0100000-0000-0000-0000-000000000004', '2026-10-05', 'pending',  'I', false, '05/10 izin urusan kampus'),
-  ('u0100000-0000-0000-0000-000000000004', '2026-10-06', 'full_day', 'H', false, NULL),
-  ('u0100000-0000-0000-0000-000000000004', '2026-10-07', 'full_day', 'H', false, NULL),
-  ('u0100000-0000-0000-0000-000000000004', '2026-10-08', 'full_day', 'H', false, NULL)
+  ('a0100000-0000-0000-0000-000000000004', '2026-09-28', 'full_day', 'H', false, NULL),
+  ('a0100000-0000-0000-0000-000000000004', '2026-09-29', 'full_day', 'H', false, NULL),
+  ('a0100000-0000-0000-0000-000000000004', '2026-09-30', 'pending',  'S', false, '30/09 surat dokter terlampir'),
+  ('a0100000-0000-0000-0000-000000000004', '2026-10-01', 'full_day', 'H', false, NULL),
+  ('a0100000-0000-0000-0000-000000000004', '2026-10-02', 'full_day', 'H', false, NULL),
+  ('a0100000-0000-0000-0000-000000000004', '2026-10-05', 'pending',  'I', false, '05/10 izin urusan kampus'),
+  ('a0100000-0000-0000-0000-000000000004', '2026-10-06', 'full_day', 'H', false, NULL),
+  ('a0100000-0000-0000-0000-000000000004', '2026-10-07', 'full_day', 'H', false, NULL),
+  ('a0100000-0000-0000-0000-000000000004', '2026-10-08', 'full_day', 'H', false, NULL)
 ON CONFLICT (user_id, date) DO NOTHING;
 
 -- Bintang Reira Putri Hanafi (Perbantuan di Audit)
 INSERT INTO attendance (user_id, date, status, attendance_status, is_perbantuan, notes)
 VALUES
-  ('u0100000-0000-0000-0000-000000000011', '2026-09-28', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
-  ('u0100000-0000-0000-0000-000000000011', '2026-09-29', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
-  ('u0100000-0000-0000-0000-000000000011', '2026-09-30', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
-  ('u0100000-0000-0000-0000-000000000011', '2026-10-01', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
-  ('u0100000-0000-0000-0000-000000000011', '2026-10-02', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
-  ('u0100000-0000-0000-0000-000000000011', '2026-10-05', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
-  ('u0100000-0000-0000-0000-000000000011', '2026-10-06', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
-  ('u0100000-0000-0000-0000-000000000011', '2026-10-07', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
-  ('u0100000-0000-0000-0000-000000000011', '2026-10-08', 'full_day', 'H', true, 'Perbantuan closing audit semester')
+  ('a0100000-0000-0000-0000-000000000011', '2026-09-28', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
+  ('a0100000-0000-0000-0000-000000000011', '2026-09-29', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
+  ('a0100000-0000-0000-0000-000000000011', '2026-09-30', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
+  ('a0100000-0000-0000-0000-000000000011', '2026-10-01', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
+  ('a0100000-0000-0000-0000-000000000011', '2026-10-02', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
+  ('a0100000-0000-0000-0000-000000000011', '2026-10-05', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
+  ('a0100000-0000-0000-0000-000000000011', '2026-10-06', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
+  ('a0100000-0000-0000-0000-000000000011', '2026-10-07', 'full_day', 'H', true, 'Perbantuan closing audit semester'),
+  ('a0100000-0000-0000-0000-000000000011', '2026-10-08', 'full_day', 'H', true, 'Perbantuan closing audit semester')
 ON CONFLICT (user_id, date) DO NOTHING;

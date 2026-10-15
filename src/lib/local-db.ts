@@ -62,19 +62,19 @@ const BATCH_15_ID = 'b1500000-0000-0000-0000-000000000015';
 // Pre-configured interns from PT BPR Sehat Sejahtera reference document
 const INITIAL_INTERNS = [
   { id: '22222222-2222-2222-2222-222222222222', name: 'Budi Santoso', email: 'budi@intern.bprsehat.com', dept: 'CS', status: 'active' },
-  { id: 'u0100000-0000-0000-0000-000000000001', name: 'Alfiani Nutriana Ayu', email: 'alfiani@intern.bprsehat.com', dept: 'CS', status: 'active' },
-  { id: 'u0100000-0000-0000-0000-000000000002', name: 'Elsya Yunita Simangunsong', email: 'elsya@intern.bprsehat.com', dept: 'Teller UNPAM', status: 'active' },
-  { id: 'u0100000-0000-0000-0000-000000000003', name: 'Puan Maharani', email: 'puan@intern.bprsehat.com', dept: 'Teller UNPAM', status: 'active' },
-  { id: 'u0100000-0000-0000-0000-000000000004', name: 'Novita Al Fitri Daeng', email: 'novita@intern.bprsehat.com', dept: 'Teller UNPAM', status: 'active' },
-  { id: 'u0100000-0000-0000-0000-000000000005', name: 'Felisitas Erselin', email: 'felisitas@intern.bprsehat.com', dept: 'SDM', status: 'active' },
-  { id: 'u0100000-0000-0000-0000-000000000006', name: 'Listiyani', email: 'listiyani@intern.bprsehat.com', dept: 'Accounting', status: 'active' },
-  { id: 'u0100000-0000-0000-0000-000000000007', name: 'Mustika Wulan', email: 'mustika@intern.bprsehat.com', dept: 'Kepatuhan', status: 'active' },
-  { id: 'u0100000-0000-0000-0000-000000000008', name: 'Muhammad Rizq Noval', email: 'rizq@intern.bprsehat.com', dept: 'Kepatuhan', status: 'active' },
-  { id: 'u0100000-0000-0000-0000-000000000009', name: 'Eki Ramdani Sopyana', email: 'eki@intern.bprsehat.com', dept: 'Kredit', status: 'active' },
-  { id: 'u0100000-0000-0000-0000-000000000010', name: 'Nesya Chintiya Bella', email: 'nesya@intern.bprsehat.com', dept: 'Kredit', status: 'active' },
-  { id: 'u0100000-0000-0000-0000-000000000011', name: 'Bintang Reira Putri Hanafi', email: 'bintang@intern.bprsehat.com', dept: 'Audit', status: 'perbantuan' },
-  { id: 'u0100000-0000-0000-0000-000000000012', name: 'Rosmita Fathia Hidayat', email: 'rosmita@intern.bprsehat.com', dept: 'Social Media', status: 'active' },
-  { id: 'u0100000-0000-0000-0000-000000000013', name: 'Valdis Sandya Akhjan', email: 'valdis@intern.bprsehat.com', dept: 'Social Media', status: 'perbantuan' },
+  { id: 'a0100000-0000-0000-0000-000000000001', name: 'Alfiani Nutriana Ayu', email: 'alfiani@intern.bprsehat.com', dept: 'CS', status: 'active' },
+  { id: 'a0100000-0000-0000-0000-000000000002', name: 'Elsya Yunita Simangunsong', email: 'elsya@intern.bprsehat.com', dept: 'Teller UNPAM', status: 'active' },
+  { id: 'a0100000-0000-0000-0000-000000000003', name: 'Puan Maharani', email: 'puan@intern.bprsehat.com', dept: 'Teller UNPAM', status: 'active' },
+  { id: 'a0100000-0000-0000-0000-000000000004', name: 'Novita Al Fitri Daeng', email: 'novita@intern.bprsehat.com', dept: 'Teller UNPAM', status: 'active' },
+  { id: 'a0100000-0000-0000-0000-000000000005', name: 'Felisitas Erselin', email: 'felisitas@intern.bprsehat.com', dept: 'SDM', status: 'active' },
+  { id: 'a0100000-0000-0000-0000-000000000006', name: 'Listiyani', email: 'listiyani@intern.bprsehat.com', dept: 'Accounting', status: 'active' },
+  { id: 'a0100000-0000-0000-0000-000000000007', name: 'Mustika Wulan', email: 'mustika@intern.bprsehat.com', dept: 'Kepatuhan', status: 'active' },
+  { id: 'a0100000-0000-0000-0000-000000000008', name: 'Muhammad Rizq Noval', email: 'rizq@intern.bprsehat.com', dept: 'Kepatuhan', status: 'active' },
+  { id: 'a0100000-0000-0000-0000-000000000009', name: 'Eki Ramdani Sopyana', email: 'eki@intern.bprsehat.com', dept: 'Kredit', status: 'active' },
+  { id: 'a0100000-0000-0000-0000-000000000010', name: 'Nesya Chintiya Bella', email: 'nesya@intern.bprsehat.com', dept: 'Kredit', status: 'active' },
+  { id: 'a0100000-0000-0000-0000-000000000011', name: 'Bintang Reira Putri Hanafi', email: 'bintang@intern.bprsehat.com', dept: 'Audit', status: 'perbantuan' },
+  { id: 'a0100000-0000-0000-0000-000000000012', name: 'Rosmita Fathia Hidayat', email: 'rosmita@intern.bprsehat.com', dept: 'Social Media', status: 'active' },
+  { id: 'a0100000-0000-0000-0000-000000000013', name: 'Valdis Sandya Akhjan', email: 'valdis@intern.bprsehat.com', dept: 'Social Media', status: 'perbantuan' },
 ];
 
 const INITIAL_DATA: DatabaseSchema = {
