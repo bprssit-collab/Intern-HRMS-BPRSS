@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS users (
   name            TEXT NOT NULL,
   email           TEXT UNIQUE NOT NULL,
   password_hash   TEXT NOT NULL,
-  role            TEXT NOT NULL CHECK (role IN ('intern', 'hrd')),
+  role            TEXT NOT NULL CHECK (role IN ('intern', 'hrd', 'super_admin')),
   department      TEXT,
   batch_id        UUID REFERENCES batches(id) ON DELETE SET NULL,
   status          TEXT DEFAULT 'active' CHECK (status IN ('active', 'perbantuan', 'completed')),
@@ -142,9 +142,10 @@ ON CONFLICT (batch_number) DO UPDATE SET
   perbantuan_full_day_rate = EXCLUDED.perbantuan_full_day_rate,
   perbantuan_half_day_rate = EXCLUDED.perbantuan_half_day_rate;
 
--- Users: Admin HRD (admin123) & 14 Interns (intern123) from reference spreadsheet
+-- Users: Super Admin (admin123), Admin HRD (admin123) & 14 Interns (intern123) from reference spreadsheet
 INSERT INTO users (id, name, email, password_hash, role, department, batch_id, status)
 VALUES
+  ('00000000-0000-0000-0000-000000000099', 'Super Admin', 'superadmin@bprsehat.com', '$2b$10$iyo1ft6DWz2EphSgQ1xmc.vHCb18X8DXc4QhKd0QD7K1bS5tFF4v2', 'super_admin', 'IT & Management', NULL, 'active'),
   ('11111111-1111-1111-1111-111111111111', 'Admin HRD', 'hrd@bprsehat.com', '$2b$10$.gceNqbyuUsaK3laNUpYX.2GVYHS2/hpSxkoSMij9XHsNVVqfV4x.', 'hrd', 'HRD', NULL, 'active'),
   ('22222222-2222-2222-2222-222222222222', 'Budi Santoso', 'budi@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'CS', 'b1500000-0000-0000-0000-000000000015', 'active'),
   ('u0100000-0000-0000-0000-000000000001', 'Alfiani Nutriana Ayu', 'alfiani@intern.bprsehat.com', '$2b$10$J1E6KWLCNCLjSUKq3o05r.oyhMiIkUmLS/I4SDbDOw1wFnuY9wTTa', 'intern', 'CS', 'b1500000-0000-0000-0000-000000000015', 'active'),

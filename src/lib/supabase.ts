@@ -12,13 +12,15 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-const isPlaceholder =
+export const isUsingLocalDb =
   !supabaseUrl ||
   supabaseUrl.includes('YOUR_PROJECT_ID') ||
   !supabaseAnonKey ||
   supabaseAnonKey.includes('YOUR_SUPABASE') ||
   !serviceRoleKey ||
   serviceRoleKey.includes('YOUR_SUPABASE');
+
+const isPlaceholder = isUsingLocalDb;
 
 /** Public client - safe to use in client components */
 export const supabase = isPlaceholder
