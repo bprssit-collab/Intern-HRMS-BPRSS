@@ -11,6 +11,7 @@ import {
 import { 
   Camera, 
   CheckCircle, 
+  CheckCircle2,
   RefreshCcw, 
   AlertTriangle, 
   Loader2, 
@@ -20,10 +21,72 @@ import {
   Move,
   Check,
   Zap,
-  Eye
+  Eye,
+  EyeOff,
+  ArrowRight,
+  ArrowLeft,
+  ArrowUp,
+  UserCheck,
+  ShieldCheck,
+  FastForward
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+
+export type LivenessStep = 'front' | 'blink' | 'right' | 'left' | 'up' | 'final';
+
+export interface RegistrationStepConfig {
+  id: LivenessStep;
+  title: string;
+  short: string;
+  instruction: string;
+  tip: string;
+}
+
+export const REGISTRATION_STEPS: RegistrationStepConfig[] = [
+  {
+    id: 'front',
+    title: '1. Hadap Lurus',
+    short: 'Lurus',
+    instruction: 'Tatap lurus ke kamera di dalam lingkaran',
+    tip: 'Posisikan wajah tegak dan simetris',
+  },
+  {
+    id: 'blink',
+    title: '2. Kedipkan Mata',
+    short: 'Kedip',
+    instruction: 'Kedipkan kedua mata Anda perlahan',
+    tip: 'Pejamkan mata sejenak lalu buka kembali',
+  },
+  {
+    id: 'right',
+    title: '3. Tengok Kanan',
+    short: 'Kanan',
+    instruction: 'Tengok perlahan sedikit ke arah kanan',
+    tip: 'Putar kepala santai ke arah kanan Anda (15-30°)',
+  },
+  {
+    id: 'left',
+    title: '4. Tengok Kiri',
+    short: 'Kiri',
+    instruction: 'Tengok perlahan sedikit ke arah kiri',
+    tip: 'Putar kepala santai ke arah kiri Anda (15-30°)',
+  },
+  {
+    id: 'up',
+    title: '5. Lihat ke Atas',
+    short: 'Atas',
+    instruction: 'Angkat dagu sedikit / tatap ke atas',
+    tip: 'Dongakkan kepala sedikit ke atas',
+  },
+  {
+    id: 'final',
+    title: 'Selesai!',
+    short: 'Selesai',
+    instruction: 'Sempurna! Kembali hadap lurus ke kamera...',
+    tip: 'Perekaman biometrik presisi sedang diproses',
+  },
+];
 
 interface FaceCaptureProps {
   onCapture: (descriptor: number[]) => Promise<{ success: boolean; message?: string } | void> | void;
@@ -45,7 +108,6 @@ export function FaceCapture({
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const isLoopRunningRef = useRef(false);
-  const optimalTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const [isInitializing, setIsInitializing] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -61,9 +123,33 @@ export function FaceCapture({
     faceRatio: 0,
   });
 
-  // Auto-capture countdown: null when inactive, 3.. 2.. 1.. 0
+  // Auto-capture countdown for verify mode: null when inactive, 3.. 2.. 1.. 0
   const [autoCaptureCountdown, setAutoCaptureCountdown] = useState<number | null>(null);
   const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
+
+  // Multi-pose Liveness Registration State Machine
+  const [regStep, setRegStep] = useState<LivenessStep>('front');
+  const [completedSteps, setCompletedSteps] = useState<Record<LivenessStep, boolean>>({
+    front: false,
+    blink: false,
+    right: false,
+    left: false,
+    up: false,
+    final: false,
+  });
+  const [stepSuccessToast, setStepSuccessToast] = useState<string | null>(null);
+
+  const regStepRef = useRef<LivenessStep>('front');
+  const completedStepsRef = useRef<Record<LivenessStep, boolean>>({
+    front: false,
+    blink: false,
+    right: false,
+    left: false,
+    up: false,
+    final: false,
+  });
+  const stepHoldTimeRef = useRef(0);
+  const blinkSeenClosedRef = useRef(false);
 
   // Initialize camera and models on mount
   useEffect(() => {
@@ -192,6 +278,39 @@ export function FaceCapture({
   const isProcessingRef = useRef(false);
   const successRef = useRef(false);
 
+  // Advance to next liveness step with visual feedback
+  const advanceStep = useCallback((stepDone: LivenessStep, nextStep: LivenessStep, toastText?: string) => {
+    stepHoldTimeRef.current = 0;
+    blinkSeenClosedRef.current = false;
+
+    completedStepsRef.current = {
+      ...completedStepsRef.current,
+      [stepDone]: true,
+    };
+    setCompletedSteps({ ...completedStepsRef.current });
+
+    if (toastText) {
+      setStepSuccessToast(toastText);
+      setTimeout(() => setStepSuccessToast(null), 1400);
+    }
+
+    if (stepDone !== nextStep) {
+      regStepRef.current = nextStep;
+      setRegStep(nextStep);
+    }
+  }, []);
+
+  const skipCurrentStep = useCallback(() => {
+    const order: LivenessStep[] = ['front', 'blink', 'right', 'left', 'up', 'final'];
+    const idx = order.indexOf(regStepRef.current);
+    if (idx >= 0 && idx < order.length - 1) {
+      const next = order[idx + 1];
+      advanceStep(order[idx], next, `✓ Langkah ${REGISTRATION_STEPS[idx].short} selesai`);
+    } else {
+      handleCaptureRef.current();
+    }
+  }, [advanceStep]);
+
   // Sync refs with state on every render
   autoCaptureEnabledRef.current = autoCaptureEnabled;
   isProcessingRef.current = isProcessing;
@@ -226,42 +345,112 @@ export function FaceCapture({
               drawLandmarksAndHUD(canvasRef.current, videoRef.current, result);
             }
 
-            // Reliable loop-driven auto-capture logic
-            if (result.status === 'optimal') {
+            // -------------------------------------------------------------
+            // MODE: REGISTER (Multi-Pose Liveness Guidance Workflow)
+            // -------------------------------------------------------------
+            if (mode === 'register') {
               if (
-                autoCaptureEnabledRef.current && 
                 !hasCapturedRef.current && 
                 !isProcessingRef.current && 
-                !successRef.current
+                !successRef.current &&
+                result.detected
               ) {
-                optimalDurationRef.current += INTERVAL_MS;
+                const currentStep = regStepRef.current;
+                const pose = result.pose;
 
-                // Calibrated comfortable pacing:
-                // 0 - 600ms: stabilization period (user settles expression & posture)
-                // 600ms - 1400ms: Count 3 (800ms)
-                // 1400ms - 2200ms: Count 2 (800ms)
-                // 2200ms - 3000ms: Count 1 (800ms)
-                // >= 3000ms: Trigger capture!
-                const STABILIZE_MS = 600;
-                const STEP_MS = 800;
-                const TOTAL_HOLD_MS = STABILIZE_MS + (STEP_MS * 3); // 3.0s total
-
-                if (optimalDurationRef.current < STABILIZE_MS) {
-                  setAutoCaptureCountdown(null);
-                } else if (optimalDurationRef.current >= TOTAL_HOLD_MS) {
-                  hasCapturedRef.current = true;
-                  setAutoCaptureCountdown(null);
-                  handleCaptureRef.current();
-                } else {
-                  const elapsedAfterStabilize = optimalDurationRef.current - STABILIZE_MS;
-                  const remaining = 3 - Math.floor(elapsedAfterStabilize / STEP_MS);
-                  setAutoCaptureCountdown(Math.max(1, Math.min(3, remaining)));
+                if (currentStep === 'front') {
+                  // Step 1: Frontal look in optimal distance
+                  if (result.status === 'optimal' && pose?.isFrontal) {
+                    stepHoldTimeRef.current += INTERVAL_MS;
+                    if (stepHoldTimeRef.current >= 700) {
+                      advanceStep('front', 'blink', '✓ Hadap Lurus Berhasil!');
+                    }
+                  } else {
+                    stepHoldTimeRef.current = Math.max(0, stepHoldTimeRef.current - INTERVAL_MS / 2);
+                  }
+                } else if (currentStep === 'blink') {
+                  // Step 2: Blink detection (anti-spoofing)
+                  if (pose?.isEyesClosed) {
+                    blinkSeenClosedRef.current = true;
+                  } else if (blinkSeenClosedRef.current && (pose?.ear || 0) > 0.19) {
+                    advanceStep('blink', 'right', '✓ Kedipan Mata Terdeteksi!');
+                  }
+                } else if (currentStep === 'right') {
+                  // Step 3: Turn right
+                  if (pose?.yaw === 'right') {
+                    stepHoldTimeRef.current += INTERVAL_MS;
+                    if (stepHoldTimeRef.current >= 450) {
+                      advanceStep('right', 'left', '✓ Sudut Kanan Terverifikasi!');
+                    }
+                  } else {
+                    stepHoldTimeRef.current = Math.max(0, stepHoldTimeRef.current - INTERVAL_MS / 2);
+                  }
+                } else if (currentStep === 'left') {
+                  // Step 4: Turn left
+                  if (pose?.yaw === 'left') {
+                    stepHoldTimeRef.current += INTERVAL_MS;
+                    if (stepHoldTimeRef.current >= 450) {
+                      advanceStep('left', 'up', '✓ Sudut Kiri Terverifikasi!');
+                    }
+                  } else {
+                    stepHoldTimeRef.current = Math.max(0, stepHoldTimeRef.current - INTERVAL_MS / 2);
+                  }
+                } else if (currentStep === 'up') {
+                  // Step 5: Look up / Tilt up
+                  if (pose?.pitch === 'up') {
+                    stepHoldTimeRef.current += INTERVAL_MS;
+                    if (stepHoldTimeRef.current >= 450) {
+                      advanceStep('up', 'final', '✓ Pose Atas Terverifikasi!');
+                    }
+                  } else {
+                    stepHoldTimeRef.current = Math.max(0, stepHoldTimeRef.current - INTERVAL_MS / 2);
+                  }
+                } else if (currentStep === 'final') {
+                  // Step 6: Final Frontal position & Automatic Capture
+                  if (result.status === 'optimal' && pose?.isFrontal) {
+                    stepHoldTimeRef.current += INTERVAL_MS;
+                    if (stepHoldTimeRef.current >= 500) {
+                      hasCapturedRef.current = true;
+                      advanceStep('final', 'final', '✓ Wajah Presisi! Mengambil foto...');
+                      handleCaptureRef.current();
+                    }
+                  }
                 }
               }
-            } else {
-              // Reset countdown immediately if face slips out of optimal bounds or turns sideways
-              optimalDurationRef.current = 0;
-              setAutoCaptureCountdown(null);
+            } 
+            // -------------------------------------------------------------
+            // MODE: VERIFY (Quick daily attendance auto-capture)
+            // -------------------------------------------------------------
+            else {
+              if (result.status === 'optimal') {
+                if (
+                  autoCaptureEnabledRef.current && 
+                  !hasCapturedRef.current && 
+                  !isProcessingRef.current && 
+                  !successRef.current
+                ) {
+                  optimalDurationRef.current += INTERVAL_MS;
+
+                  const STABILIZE_MS = 600;
+                  const STEP_MS = 800;
+                  const TOTAL_HOLD_MS = STABILIZE_MS + (STEP_MS * 3); // 3.0s total
+
+                  if (optimalDurationRef.current < STABILIZE_MS) {
+                    setAutoCaptureCountdown(null);
+                  } else if (optimalDurationRef.current >= TOTAL_HOLD_MS) {
+                    hasCapturedRef.current = true;
+                    setAutoCaptureCountdown(null);
+                    handleCaptureRef.current();
+                  } else {
+                    const elapsedAfterStabilize = optimalDurationRef.current - STABILIZE_MS;
+                    const remaining = 3 - Math.floor(elapsedAfterStabilize / STEP_MS);
+                    setAutoCaptureCountdown(Math.max(1, Math.min(3, remaining)));
+                  }
+                }
+              } else {
+                optimalDurationRef.current = 0;
+                setAutoCaptureCountdown(null);
+              }
             }
           } catch (e) {
             // Ignore temporary frame glitch
@@ -273,11 +462,12 @@ export function FaceCapture({
     };
 
     animationFrameRef.current = requestAnimationFrame(loop);
-  }, [drawLandmarksAndHUD]);
+  }, [drawLandmarksAndHUD, mode, advanceStep]);
 
   const stopLiveDetectionLoop = useCallback(() => {
     isLoopRunningRef.current = false;
     optimalDurationRef.current = 0;
+    stepHoldTimeRef.current = 0;
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
@@ -383,14 +573,69 @@ export function FaceCapture({
           </span>
         </h2>
         
-        {/* Auto capture active badge */}
+        {/* Mode badge */}
         {!success && (
           <div className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 font-semibold">
             <Sparkles className="w-3 h-3 text-emerald-400" />
-            <span>Auto Capture Aktif</span>
+            <span>{mode === 'register' ? 'Validasi Liveness' : 'Auto Capture'}</span>
           </div>
         )}
       </div>
+
+      {/* MULTI-POSE STEP TRACKER (Khusus Mode Registrasi Wajah) */}
+      {mode === 'register' && !success && (
+        <div className="w-full mb-3 p-2.5 rounded-xl bg-slate-900/80 border border-white/10 backdrop-blur-md">
+          <div className="flex items-center justify-between text-xs mb-2 px-1">
+            <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              Perekaman Presisi Multi-Sudut
+            </span>
+            <span className="text-emerald-400 font-mono text-[11px] font-bold">
+              {Object.values(completedSteps).filter(Boolean).length}/5 Gerakan
+            </span>
+          </div>
+          
+          {/* Horizontal Step Pills */}
+          <div className="grid grid-cols-5 gap-1.5">
+            {REGISTRATION_STEPS.slice(0, 5).map((step, idx) => {
+              const isDone = completedSteps[step.id];
+              const isCurrent = regStep === step.id;
+              return (
+                <div
+                  key={step.id}
+                  className={cn(
+                    "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-center transition-all duration-300 border",
+                    isDone
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50"
+                      : isCurrent
+                      ? "bg-cyan-500/20 text-cyan-200 border-cyan-400 shadow-lg shadow-cyan-500/30 ring-1 ring-cyan-400"
+                      : "bg-white/[0.03] text-slate-500 border-white/5"
+                  )}
+                >
+                  <div className="text-[13px] mb-0.5">
+                    {isDone ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 animate-scale-in" />
+                    ) : step.id === 'front' ? (
+                      <UserCheck className="w-3.5 h-3.5" />
+                    ) : step.id === 'blink' ? (
+                      <Eye className="w-3.5 h-3.5" />
+                    ) : step.id === 'right' ? (
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    ) : step.id === 'left' ? (
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                    ) : (
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    )}
+                  </div>
+                  <span className="text-[10px] font-bold truncate w-full">
+                    {step.short}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Camera Viewport with Biometric Face Placeholder Guide */}
       <div className="camera-viewport mb-4 relative overflow-hidden rounded-2xl border-2 border-white/10 shadow-2xl bg-black">
@@ -461,7 +706,9 @@ export function FaceCapture({
                 className={cn(
                   "absolute inset-0 rounded-[50%] border-2 transition-all duration-300",
                   liveState.status === 'optimal'
-                    ? "border-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.5)] animate-pulse"
+                    ? "border-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.5)]"
+                    : liveState.status === 'not_frontal' && mode === 'register' && (regStep === 'right' || regStep === 'left' || regStep === 'up')
+                    ? "border-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.5)] animate-pulse"
                     : liveState.status === 'not_frontal'
                     ? "border-amber-400 border-dashed shadow-[0_0_15px_rgba(245,158,11,0.4)]"
                     : liveState.status === 'too_far'
@@ -481,7 +728,6 @@ export function FaceCapture({
                 fill="none" 
                 stroke="currentColor"
               >
-                {/* Head oval */}
                 <ellipse 
                   cx="50" 
                   cy="45" 
@@ -493,7 +739,6 @@ export function FaceCapture({
                   strokeWidth="1.5" 
                   strokeDasharray="3 3"
                 />
-                {/* Eye level horizon line */}
                 <line 
                   x1="35" 
                   y1="40" 
@@ -505,7 +750,6 @@ export function FaceCapture({
                   strokeWidth="1" 
                   strokeDasharray="2 2"
                 />
-                {/* Nose center marker */}
                 <line 
                   x1="50" 
                   y1="42" 
@@ -516,7 +760,6 @@ export function FaceCapture({
                   )}
                   strokeWidth="1"
                 />
-                {/* Chin line */}
                 <path 
                   d="M42 68 Q50 74 58 68" 
                   className={cn(
@@ -524,7 +767,6 @@ export function FaceCapture({
                   )}
                   strokeWidth="1" 
                 />
-                {/* Shoulders */}
                 <path 
                   d="M16 125 C20 95, 35 90, 50 90 C65 90, 80 95, 84 125" 
                   className={cn(
@@ -547,25 +789,88 @@ export function FaceCapture({
                 style={{ top: '40%' }}
               />
 
-              {/* Directional helper icons based on distance/position */}
-              {liveState.status === 'too_far' && (
+              {/* DYNAMIC IN-OVAL MULTI-POSE GESTURE PROMPTS (MODE REGISTER) */}
+              {mode === 'register' && !stepSuccessToast && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-3">
+                  {regStep === 'blink' && (
+                    <div className="flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-2.5 rounded-2xl border border-cyan-500/40 shadow-xl animate-fade-in">
+                      <div className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-cyan-300 mb-1 animate-pulse">
+                        <Eye className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-bold text-cyan-200">Kedipkan Mata</span>
+                    </div>
+                  )}
+
+                  {regStep === 'right' && (
+                    <div className="flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-2.5 rounded-2xl border border-cyan-500/40 shadow-xl animate-fade-in">
+                      <div className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-cyan-300 mb-1 animate-bounce">
+                        <ArrowRight className="w-6 h-6" />
+                      </div>
+                      <span className="text-xs font-bold text-cyan-200">Tengok ke Kanan →</span>
+                    </div>
+                  )}
+
+                  {regStep === 'left' && (
+                    <div className="flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-2.5 rounded-2xl border border-cyan-500/40 shadow-xl animate-fade-in">
+                      <div className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-cyan-300 mb-1 animate-bounce">
+                        <ArrowLeft className="w-6 h-6" />
+                      </div>
+                      <span className="text-xs font-bold text-cyan-200">← Tengok ke Kiri</span>
+                    </div>
+                  )}
+
+                  {regStep === 'up' && (
+                    <div className="flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-2.5 rounded-2xl border border-cyan-500/40 shadow-xl animate-fade-in">
+                      <div className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-cyan-300 mb-1 animate-bounce">
+                        <ArrowUp className="w-6 h-6" />
+                      </div>
+                      <span className="text-xs font-bold text-cyan-200">↑ Lihat ke Atas</span>
+                    </div>
+                  )}
+
+                  {regStep === 'final' && (
+                    <div className="flex flex-col items-center justify-center bg-black/65 backdrop-blur-sm px-4 py-3 rounded-2xl border border-emerald-500/50 shadow-xl animate-scale-in">
+                      <Sparkles className="w-8 h-8 text-emerald-400 animate-spin mb-1.5" />
+                      <span className="text-xs font-extrabold text-emerald-300 text-center">
+                        Hadap Lurus Kamera...
+                      </span>
+                      <span className="text-[10px] text-slate-300 mt-0.5">Mengambil Foto Final</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step Success Toast Flash Inside Oval */}
+              {stepSuccessToast && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-emerald-950/80 backdrop-blur-sm rounded-[50%] p-3 animate-scale-in z-20">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/30 border-2 border-emerald-400 flex items-center justify-center text-emerald-300 mb-1.5 shadow-lg shadow-emerald-500/50">
+                    <CheckCircle className="w-7 h-7" />
+                  </div>
+                  <span className="text-xs font-extrabold text-emerald-200 text-center px-2">
+                    {stepSuccessToast}
+                  </span>
+                </div>
+              )}
+
+              {/* Directional helper icons based on distance/position (When searching/out of bounds) */}
+              {!stepSuccessToast && liveState.status === 'too_far' && (
                 <div className="absolute inset-0 flex items-center justify-center animate-ping pointer-events-none opacity-40">
                   <Maximize2 className="w-16 h-16 text-amber-400" />
                 </div>
               )}
-              {liveState.status === 'too_close' && (
+              {!stepSuccessToast && liveState.status === 'too_close' && (
                 <div className="absolute inset-0 flex items-center justify-center animate-pulse pointer-events-none opacity-40">
                   <Minimize2 className="w-16 h-16 text-orange-400" />
                 </div>
               )}
-              {liveState.status === 'off_center' && (
+              {!stepSuccessToast && liveState.status === 'off_center' && (
                 <div className="absolute inset-0 flex items-center justify-center animate-pulse pointer-events-none opacity-40">
                   <Move className="w-12 h-12 text-yellow-400" />
                 </div>
               )}
 
-              {/* Auto capture countdown overlay badge inside oval */}
-              {autoCaptureCountdown !== null && (
+              {/* Auto capture countdown overlay badge inside oval (MODE VERIFY ONLY) */}
+              {mode === 'verify' && autoCaptureCountdown !== null && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-xs rounded-[50%] animate-scale-in">
                   <div className="w-14 h-14 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/50">
                     <span className="text-2xl font-black text-emerald-300 animate-pulse">
@@ -586,6 +891,8 @@ export function FaceCapture({
                   "px-3.5 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md border shadow-lg flex items-center gap-2 max-w-[90%] truncate transition-all duration-200",
                   liveState.status === 'optimal'
                     ? "bg-emerald-950/90 text-emerald-300 border-emerald-500/60 shadow-emerald-900/40"
+                    : liveState.status === 'not_frontal' && mode === 'register' && (regStep === 'right' || regStep === 'left' || regStep === 'up')
+                    ? "bg-cyan-950/90 text-cyan-200 border-cyan-500/60 shadow-cyan-900/40"
                     : liveState.status === 'not_frontal'
                     ? "bg-amber-950/90 text-amber-200 border-amber-500/60 shadow-amber-900/40"
                     : liveState.status === 'too_far'
@@ -599,6 +906,14 @@ export function FaceCapture({
               >
                 {liveState.status === 'optimal' ? (
                   <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : mode === 'register' && regStep === 'right' ? (
+                  <ArrowRight className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                ) : mode === 'register' && regStep === 'left' ? (
+                  <ArrowLeft className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                ) : mode === 'register' && regStep === 'up' ? (
+                  <ArrowUp className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                ) : mode === 'register' && regStep === 'blink' ? (
+                  <Eye className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                 ) : liveState.status === 'not_frontal' ? (
                   <Eye className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
                 ) : liveState.status === 'too_far' ? (
@@ -610,7 +925,11 @@ export function FaceCapture({
                 ) : (
                   <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin shrink-0" />
                 )}
-                <span className="truncate">{liveState.message}</span>
+                <span className="truncate">
+                  {mode === 'register' && regStep !== 'final'
+                    ? REGISTRATION_STEPS.find(s => s.id === regStep)?.instruction || liveState.message
+                    : liveState.message}
+                </span>
               </div>
             </div>
           </div>
@@ -624,7 +943,7 @@ export function FaceCapture({
               <Zap className="w-5 h-5 text-emerald-300 absolute inset-0 m-auto" />
             </div>
             <p className="text-white text-sm font-bold tracking-wide">
-              {mode === 'verify' ? 'Memverifikasi Biometrik Wajah...' : 'Merekam 128 Vektor Wajah...'}
+              {mode === 'verify' ? 'Memverifikasi Biometrik Wajah...' : 'Merekam 128 Vektor Wajah Presisi...'}
             </p>
             <p className="text-xs text-slate-400 mt-1">Mencocokkan dengan model FaceNet</p>
           </div>
@@ -666,7 +985,7 @@ export function FaceCapture({
         </div>
       )}
       
-      {/* Action Area: 100% Pure Automatic Capture */}
+      {/* Action Area */}
       {success ? (
         <button 
           type="button" 
@@ -677,25 +996,70 @@ export function FaceCapture({
         </button>
       ) : (
         <div className="w-full space-y-2.5">
-          {/* Automatic capture status banner */}
-          <div className={cn(
-            "w-full p-3.5 rounded-xl border text-center transition-all duration-300",
-            liveState.status === 'optimal'
-              ? "bg-emerald-950/60 border-emerald-500/50 shadow-lg shadow-emerald-950/50"
-              : "bg-slate-900/60 border-white/10"
-          )}>
-            {liveState.status === 'optimal' ? (
-              <div className="flex items-center justify-center gap-2 text-emerald-300 font-bold text-sm">
-                <Sparkles className="w-4 h-4 text-emerald-400 animate-spin" />
-                <span>Posisi Sempurna! Otomatis mengambil foto...</span>
+          {/* Status banner with dynamic guidance */}
+          {mode === 'register' ? (
+            <div className="w-full p-3 rounded-xl border bg-slate-900/70 border-white/10 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-cyan-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                  {REGISTRATION_STEPS.find(s => s.id === regStep)?.title || 'Perekaman Wajah'}
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  {REGISTRATION_STEPS.find(s => s.id === regStep)?.tip}
+                </span>
               </div>
-            ) : (
-              <div className="flex items-center justify-center gap-2 text-slate-300 text-xs font-medium">
-                <Zap className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                <span>Posisikan wajah di lingkaran hingga hijau. Foto akan otomatis diambil tanpa menekan tombol.</span>
+
+              {/* Progress bar across 5 registration steps */}
+              <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="bg-gradient-to-r from-cyan-400 to-emerald-400 h-full transition-all duration-300"
+                  style={{
+                    width: `${(Object.values(completedSteps).filter(Boolean).length / 5) * 100}%`
+                  }}
+                />
               </div>
-            )}
-          </div>
+
+              {/* Action buttons to skip step or finish directly */}
+              <div className="flex items-center justify-between pt-1 text-[11px]">
+                <button
+                  type="button"
+                  onClick={skipCurrentStep}
+                  className="text-slate-400 hover:text-white flex items-center gap-1 transition-colors underline"
+                >
+                  <FastForward className="w-3 h-3" />
+                  Lewati Gerakan Ini
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCapture()}
+                  disabled={isProcessing}
+                  className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 transition-colors underline"
+                >
+                  <Check className="w-3 h-3" />
+                  Selesaikan & Simpan Langsung
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className={cn(
+              "w-full p-3.5 rounded-xl border text-center transition-all duration-300",
+              liveState.status === 'optimal'
+                ? "bg-emerald-950/60 border-emerald-500/50 shadow-lg shadow-emerald-950/50"
+                : "bg-slate-900/60 border-white/10"
+            )}>
+              {liveState.status === 'optimal' ? (
+                <div className="flex items-center justify-center gap-2 text-emerald-300 font-bold text-sm">
+                  <Sparkles className="w-4 h-4 text-emerald-400 animate-spin" />
+                  <span>Posisi Sempurna! Otomatis mengambil foto...</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-2 text-slate-300 text-xs font-medium">
+                  <Zap className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span>Posisikan wajah di lingkaran hingga hijau. Foto akan otomatis diambil tanpa menekan tombol.</span>
+                </div>
+              )}
+            </div>
+          )}
           
           {/* Fallback simulation button for testing if webcam is unavailable */}
           {(!streamRef.current || error) && !isInitializing && (

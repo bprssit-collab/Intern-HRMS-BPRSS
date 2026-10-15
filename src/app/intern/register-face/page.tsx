@@ -50,10 +50,11 @@ export default function RegisterFacePage() {
   return (
     <div className="space-y-6 sm:pl-56 animate-fade-in">
       <div className="glass-card p-6 mb-6 text-center md:text-left">
-        <h2 className="text-xl font-bold mb-2 text-white">Pendaftaran Wajah</h2>
-        <p className="text-slate-400 text-sm">
-          Untuk menggunakan fitur absensi, Anda harus mendaftarkan wajah Anda terlebih dahulu. 
-          Pastikan Anda berada di tempat yang terang dan wajah tidak tertutup.
+        <h2 className="text-xl font-bold mb-2 text-white flex items-center gap-2">
+          <span>Pendaftaran Wajah Interaktif</span>
+        </h2>
+        <p className="text-slate-300 text-sm leading-relaxed">
+          Perekaman menggunakan <strong>Verifikasi Liveness & Multi-Sudut</strong> untuk akurasi biometrik maksimal. Ikuti instruksi gerakan di layar: hadap lurus, kedipkan mata, tengok kanan & kiri, serta lihat ke atas. Foto wajah otomatis direkam setelah seluruh gerakan tervalidasi.
         </p>
       </div>
 

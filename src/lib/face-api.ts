@@ -62,6 +62,17 @@ export async function getFaceDescriptor(
   return detection.descriptor;
 }
 
+export interface FacePoseMetrics {
+  yaw: 'center' | 'left' | 'right';
+  yawRatio: number;
+  pitch: 'center' | 'up' | 'down';
+  pitchRatio: number;
+  rollRatio: number;
+  ear: number; // Eye Aspect Ratio for blink detection
+  isEyesClosed: boolean;
+  isFrontal: boolean;
+}
+
 export interface LiveDetectionResult {
   detected: boolean;
   box?: { x: number; y: number; width: number; height: number };
@@ -70,11 +81,12 @@ export interface LiveDetectionResult {
   message: string;
   distanceScore: number; // 0 (far) .. 50 (ideal) .. 100 (close)
   faceRatio: number;
+  pose?: FacePoseMetrics;
 }
 
 /**
  * Fast real-time face detection for live video stream guidance.
- * Analyzes face presence, frontal angle/pose, position, and distance ratio.
+ * Analyzes face presence, frontal angle/pose, position, distance ratio, and liveness metrics (blink, yaw, pitch).
  */
 export async function detectLiveFace(
   video: HTMLVideoElement
@@ -119,8 +131,9 @@ export async function detectLiveFace(
     y: p.y,
   }));
 
-  // Analyze frontal face pose (Yaw / Sideways turning & Roll / Head tilt) using 68 facial landmarks
+  // Analyze facial landmarks (68 points)
   const pt0 = landmarks[0];   // Left jaw edge
+  const pt8 = landmarks[8];   // Chin tip
   const pt16 = landmarks[16]; // Right jaw edge
   const pt27 = landmarks[27]; // Nose bridge top
   const pt30 = landmarks[30]; // Nose tip
@@ -129,7 +142,23 @@ export async function detectLiveFace(
   const pt42 = landmarks[42]; // Right eye inner corner
   const pt45 = landmarks[45]; // Right eye outer corner
 
-  // Horizontal symmetry: nose tip relative to both jaw edges
+  // Eye Aspect Ratio (EAR) for blink detection
+  // Left eye landmarks: 36, 37, 38, 39, 40, 41
+  const hL1 = Math.hypot(landmarks[37].x - landmarks[41].x, landmarks[37].y - landmarks[41].y);
+  const hL2 = Math.hypot(landmarks[38].x - landmarks[40].x, landmarks[38].y - landmarks[40].y);
+  const wL = Math.hypot(landmarks[36].x - landmarks[39].x, landmarks[36].y - landmarks[39].y) || 1;
+  const earL = (hL1 + hL2) / (2 * wL);
+
+  // Right eye landmarks: 42, 43, 44, 45, 46, 47
+  const hR1 = Math.hypot(landmarks[43].x - landmarks[47].x, landmarks[43].y - landmarks[47].y);
+  const hR2 = Math.hypot(landmarks[44].x - landmarks[46].x, landmarks[44].y - landmarks[46].y);
+  const wR = Math.hypot(landmarks[42].x - landmarks[45].x, landmarks[42].y - landmarks[45].y) || 1;
+  const earR = (hR1 + hR2) / (2 * wR);
+
+  const ear = (earL + earR) / 2;
+  const isEyesClosed = ear < 0.175;
+
+  // Horizontal symmetry: nose tip relative to jaw edges
   const distToLeftJaw = Math.abs(pt30.x - pt0.x);
   const distToRightJaw = Math.abs(pt16.x - pt30.x);
   const jawRatio = distToLeftJaw / (distToRightJaw || 1);
@@ -144,8 +173,29 @@ export async function detectLiveFace(
   const eyeDistX = Math.abs(pt45.x - pt36.x) || 1;
   const rollRatio = eyeDeltaY / eyeDistX;
 
-  // Detect if user is turning head sideways (tengok samping) or severely tilting head
-  const isSideways = jawRatio < 0.50 || jawRatio > 2.0 || eyeNoseRatio < 0.35 || eyeNoseRatio > 2.85;
+  // Pitch calculation: eye-to-nose vs nose-to-chin
+  const distEyeToNose = Math.abs(pt30.y - pt27.y);
+  const distNoseToChin = Math.abs(pt8.y - pt30.y) || 1;
+  const pitchRatio = distEyeToNose / distNoseToChin;
+
+  // Determine Yaw pose (in mirrored selfie orientation)
+  let yaw: 'center' | 'left' | 'right' = 'center';
+  if (jawRatio < 0.62 || eyeNoseRatio < 0.45) {
+    yaw = 'right';
+  } else if (jawRatio > 1.62 || eyeNoseRatio > 2.2) {
+    yaw = 'left';
+  }
+
+  // Determine Pitch pose
+  let pitch: 'center' | 'up' | 'down' = 'center';
+  if (pitchRatio < 0.46) {
+    pitch = 'up';
+  } else if (pitchRatio > 1.10) {
+    pitch = 'down';
+  }
+
+  const isFrontal = yaw === 'center' && pitch === 'center' && rollRatio <= 0.28;
+  const isSideways = yaw !== 'center';
   const isTilted = rollRatio > 0.30;
 
   let status: LiveDetectionResult['status'] = 'optimal';
@@ -153,10 +203,16 @@ export async function detectLiveFace(
 
   if (isSideways) {
     status = 'not_frontal';
-    message = 'Hadapkan wajah lurus ke depan kamera';
+    message = yaw === 'right' ? 'Wajah menoleh ke kanan — hadap lurus ke kamera' : 'Wajah menoleh ke kiri — hadap lurus ke kamera';
   } else if (isTilted) {
     status = 'not_frontal';
     message = 'Posisikan kepala tegak (jangan miring)';
+  } else if (pitch === 'up') {
+    status = 'not_frontal';
+    message = 'Turunkan dagu sedikit — hadap lurus ke kamera';
+  } else if (pitch === 'down') {
+    status = 'not_frontal';
+    message = 'Angkat kepala sedikit — hadap lurus ke kamera';
   } else if (faceRatio < 0.16) {
     status = 'too_far';
     message = 'Wajah terlalu jauh — silakan dekatkan kamera';
@@ -168,6 +224,17 @@ export async function detectLiveFace(
     message = 'Posisikan wajah ke arah tengah lingkaran';
   }
 
+  const pose: FacePoseMetrics = {
+    yaw,
+    yawRatio: jawRatio,
+    pitch,
+    pitchRatio,
+    rollRatio,
+    ear,
+    isEyesClosed,
+    isFrontal,
+  };
+
   return {
     detected: true,
     box: { x: box.x, y: box.y, width: box.width, height: box.height },
@@ -176,6 +243,7 @@ export async function detectLiveFace(
     message,
     distanceScore,
     faceRatio,
+    pose,
   };
 }
 
