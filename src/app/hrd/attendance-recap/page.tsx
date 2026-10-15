@@ -392,10 +392,10 @@ export default function AttendanceRecapPage() {
               <select
                 value={selectedBatchId}
                 onChange={(e) => setSelectedBatchId(e.target.value)}
-                className="input-field text-sm"
+                className="input-field text-sm !bg-slate-900 !text-slate-100"
               >
                 {batches.map((b) => (
-                  <option key={b.id} value={b.id}>
+                  <option key={b.id} value={b.id} className="bg-slate-900 text-slate-100">
                     {b.name} {b.is_active ? '(Aktif)' : ''}
                   </option>
                 ))}

@@ -260,13 +260,14 @@ export default function InternsPage() {
       {/* Filter Bar */}
       <div className="glass-card p-4 flex flex-col md:flex-row gap-3 items-center">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <input
             type="text"
             placeholder="Cari nama, email, atau bagian..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input-field pl-9 text-sm w-full"
+            className="input-field has-icon text-sm w-full !pl-11"
+            style={{ paddingLeft: '2.75rem' }}
           />
         </div>
 
@@ -274,11 +275,11 @@ export default function InternsPage() {
           <select
             value={selectedBatchId}
             onChange={(e) => setSelectedBatchId(e.target.value)}
-            className="input-field text-sm !w-auto"
+            className="input-field text-sm !w-auto !bg-slate-900 !text-slate-100"
           >
-            <option value="ALL">Semua Batch</option>
+            <option value="ALL" className="bg-slate-900 text-slate-100">Semua Batch</option>
             {batches.map((b: any) => (
-              <option key={b.id} value={b.id}>
+              <option key={b.id} value={b.id} className="bg-slate-900 text-slate-100">
                 {b.name} {b.is_active ? '(Aktif)' : ''}
               </option>
             ))}
@@ -287,11 +288,11 @@ export default function InternsPage() {
           <select
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}
-            className="input-field text-sm !w-auto"
+            className="input-field text-sm !w-auto !bg-slate-900 !text-slate-100"
           >
-            <option value="ALL">Semua Bagian</option>
+            <option value="ALL" className="bg-slate-900 text-slate-100">Semua Bagian</option>
             {DEPARTMENTS.map((d) => (
-              <option key={d} value={d}>
+              <option key={d} value={d} className="bg-slate-900 text-slate-100">
                 {d}
               </option>
             ))}
@@ -300,12 +301,12 @@ export default function InternsPage() {
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="input-field text-sm !w-auto"
+            className="input-field text-sm !w-auto !bg-slate-900 !text-slate-100"
           >
-            <option value="ALL">Semua Status</option>
-            <option value="active">Magang Aktif</option>
-            <option value="perbantuan">Masa Perbantuan</option>
-            <option value="completed">Selesai / Alumni</option>
+            <option value="ALL" className="bg-slate-900 text-slate-100">Semua Status</option>
+            <option value="active" className="bg-slate-900 text-slate-100">Magang Aktif</option>
+            <option value="perbantuan" className="bg-slate-900 text-slate-100">Masa Perbantuan</option>
+            <option value="completed" className="bg-slate-900 text-slate-100">Selesai / Alumni</option>
           </select>
         </div>
       </div>

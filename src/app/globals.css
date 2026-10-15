@@ -6,6 +6,7 @@
    ============================================================ */
 
 :root {
+  color-scheme: dark;
   /* Core palette */
   --color-bg-primary: #0a0f1e;
   --color-bg-secondary: #0f1629;
@@ -157,9 +158,29 @@ body {
   outline: none;
 }
 
+/* Fix: All form inputs with icons on the left */
 .input-field.has-icon,
-.input-with-icon {
-  padding-left: 2.75rem !important;
+.input-field.pl-9,
+.input-field.pl-10,
+.input-field.pl-11,
+.input-field.pl-12,
+.input-with-icon,
+.relative:has(> svg.absolute.left-3) input.input-field,
+.relative:has(> svg.absolute.left-3\.5) input.input-field,
+.relative:has(> svg.absolute.left-4) input.input-field,
+.relative > svg.absolute.left-3 ~ input.input-field,
+.relative > svg.absolute.left-3\.5 ~ input.input-field,
+.relative > svg.absolute.left-4 ~ input.input-field {
+  padding-left: 2.75rem !important; /* 44px */
+}
+
+/* Fix: Form inputs with buttons or icons on the right (e.g. eye password) */
+.relative > button.absolute.right-3 ~ input.input-field,
+.relative > svg.absolute.right-3 ~ input.input-field,
+.input-field.pr-10,
+.input-field.pr-11,
+.input-field.pr-12 {
+  padding-right: 2.75rem !important; /* 44px */
 }
 
 .input-field:focus {
@@ -170,6 +191,35 @@ body {
 
 .input-field::placeholder {
   color: var(--color-text-muted);
+}
+
+/* ============================================================
+   Dropdown Select Styling (Fix Native White Popups & Contrast)
+   ============================================================ */
+select.input-field,
+select {
+  background-color: #0f172a !important; /* Solid dark slate-900 */
+  color: #f8fafc !important;           /* High-contrast text */
+  color-scheme: dark;
+  cursor: pointer;
+}
+
+select option,
+select optgroup {
+  background-color: #0f172a !important; /* Slate-900 */
+  color: #f8fafc !important;           /* Slate-50 */
+  padding: 8px 12px;
+}
+
+select option:checked {
+  background-color: #059669 !important; /* Emerald-600 */
+  color: #ffffff !important;
+}
+
+select option:hover,
+select option:focus {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
 }
 
 /* ============================================================

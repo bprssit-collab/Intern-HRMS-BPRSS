@@ -160,11 +160,11 @@ export default function AttendanceHistoryPage() {
             <select
               value={selectedBatchId}
               onChange={(e) => setSelectedBatchId(e.target.value)}
-              className="input-field text-sm"
+              className="input-field text-sm !bg-slate-900 !text-slate-100"
             >
-              <option value="">Semua Batch</option>
+              <option value="" className="bg-slate-900 text-slate-100">Semua Batch</option>
               {batches.map((b) => (
-                <option key={b.id} value={b.id}>
+                <option key={b.id} value={b.id} className="bg-slate-900 text-slate-100">
                   {b.name} {b.is_active ? '(Aktif)' : ''}
                 </option>
               ))}
@@ -255,13 +255,15 @@ export default function AttendanceHistoryPage() {
             </button>
           </div>
 
-          <div className="w-full sm:w-64">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
             <input
               type="text"
               placeholder="Cari nama atau bagian..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="input-field text-xs py-1.5"
+              className="input-field text-xs py-1.5 !pl-9"
+              style={{ paddingLeft: '2.25rem' }}
             />
           </div>
         </div>

@@ -292,13 +292,14 @@ export default function UsersManagementPage() {
       {/* Filter Bar */}
       <div className="glass-card p-4 flex flex-col md:flex-row gap-3 items-center justify-between">
         <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <input
             type="text"
             placeholder="Cari nama, email, atau divisi..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input-field pl-9 text-sm w-full"
+            className="input-field has-icon text-sm w-full !pl-11"
+            style={{ paddingLeft: '2.75rem' }}
           />
         </div>
 
@@ -306,11 +307,11 @@ export default function UsersManagementPage() {
           <select
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value)}
-            className="input-field text-sm !w-auto"
+            className="input-field text-sm !w-auto !bg-slate-900 !text-slate-100"
           >
-            <option value="ALL">Semua Role</option>
+            <option value="ALL" className="bg-slate-900 text-slate-100">Semua Role</option>
             {(Object.keys(ROLES_META) as UserRole[]).map((r) => (
-              <option key={r} value={r}>
+              <option key={r} value={r} className="bg-slate-900 text-slate-100">
                 {ROLES_META[r].label}
               </option>
             ))}
@@ -319,11 +320,11 @@ export default function UsersManagementPage() {
           <select
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}
-            className="input-field text-sm !w-auto"
+            className="input-field text-sm !w-auto !bg-slate-900 !text-slate-100"
           >
-            <option value="ALL">Semua Bagian</option>
+            <option value="ALL" className="bg-slate-900 text-slate-100">Semua Bagian</option>
             {DEPARTMENTS.map((d) => (
-              <option key={d} value={d}>
+              <option key={d} value={d} className="bg-slate-900 text-slate-100">
                 {d}
               </option>
             ))}
@@ -571,7 +572,8 @@ export default function UsersManagementPage() {
                     required={!editingUser.id}
                     value={editingUser.password || ''}
                     onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value })}
-                    className="input-field text-xs pr-10"
+                    className="input-field text-xs !pr-11"
+                    style={{ paddingRight: '2.75rem' }}
                     placeholder={editingUser.id ? '••••••••' : 'Password baru (min. 6 karakter)'}
                   />
                   <button
