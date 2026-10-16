@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase';
 import { Users, UserCheck, CalendarDays, Layers, UserCog, Table, FileSpreadsheet, ArrowRight, ShieldAlert } from 'lucide-react';
-import { todayISO } from '@/lib/utils';
+import { todayISO, formatDateID } from '@/lib/utils';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
@@ -75,7 +75,7 @@ export default async function HrdDashboard() {
             <p className="text-2xl font-bold text-white mt-0.5">
               {todayAttendance || 0} <span className="text-sm font-normal text-slate-500">/ {totalInterns || 0}</span>
             </p>
-            <p className="text-xs text-slate-500 mt-1">Presensi tanggal {today}</p>
+            <p className="text-xs text-slate-500 mt-1">Presensi tanggal {formatDateID(today)}</p>
           </div>
         </div>
 
@@ -98,7 +98,7 @@ export default async function HrdDashboard() {
             <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Batch Magang</p>
             <p className="text-lg font-bold text-white mt-0.5 truncate">{activeBatch ? activeBatch.name : 'Batch 15'}</p>
             <p className="text-xs text-slate-500 mt-1">
-              {activeBatch ? `${activeBatch.start_date.substring(0, 7)} s/d ${activeBatch.end_date.substring(0, 7)}` : '6 Bulan'}
+              {activeBatch ? `${formatDateID(activeBatch.start_date)} s/d ${formatDateID(activeBatch.end_date)}` : '6 Bulan'}
             </p>
           </div>
         </div>

@@ -128,7 +128,7 @@ export default function AttendanceRecapPage() {
     const targetDate = date || todayStr;
     const confirmMessage = `Apakah Anda yakin ingin MENGHAPUS data absensi ${
       userName ? `untuk "${userName}"` : ''
-    } pada tanggal ${targetDate}?\n\nSetelah dihapus, anak magang dapat melakukan absen ulang pada hari tersebut.`;
+    } pada tanggal ${formatDateID(targetDate)}?\n\nSetelah dihapus, anak magang dapat melakukan absen ulang pada hari tersebut.`;
 
     if (!window.confirm(confirmMessage)) return;
 
@@ -412,7 +412,10 @@ export default function AttendanceRecapPage() {
             </div>
 
             <div className="space-y-1 w-full lg:w-40">
-              <label className="text-xs font-semibold text-slate-300">Dari Tanggal</label>
+              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                <span>Dari Tanggal</span>
+                <span className="text-[11px] text-amber-400 font-mono font-normal">{formatDateID(startDate)}</span>
+              </label>
               <input
                 type="date"
                 required
@@ -423,7 +426,10 @@ export default function AttendanceRecapPage() {
             </div>
 
             <div className="space-y-1 w-full lg:w-40">
-              <label className="text-xs font-semibold text-slate-300">Sampai Tanggal</label>
+              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                <span>Sampai Tanggal</span>
+                <span className="text-[11px] text-amber-400 font-mono font-normal">{formatDateID(endDate)}</span>
+              </label>
               <input
                 type="date"
                 required

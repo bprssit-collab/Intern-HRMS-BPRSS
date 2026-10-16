@@ -6,17 +6,34 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Formats a date string to Indonesian locale display in Asia/Jakarta (WIB) */
-export function formatDateID(dateStr: string): string {
+/** Formats a date string to Indonesian format hh/bb/tttt (DD/MM/YYYY) in Asia/Jakarta (WIB) */
+export function formatDateID(dateStr: string | null | undefined): string {
   if (!dateStr) return '-';
-  const d = dateStr.includes('T') ? new Date(dateStr) : new Date(`${dateStr}T12:00:00Z`);
-  return d.toLocaleDateString('id-ID', {
-    weekday: 'long',
+
+  // Fast-path for ISO date strings YYYY-MM-DD
+  const clean = String(dateStr).split('T')[0].trim();
+  const match = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const [, y, m, d] = match;
+    return `${d}/${m}/${y}`;
+  }
+
+  // Fallback for timestamps or Date representations in Asia/Jakarta (WIB)
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '-';
+
+  const parts = new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
-    month: 'long',
-    day: 'numeric',
     timeZone: 'Asia/Jakarta',
-  });
+  }).formatToParts(d);
+
+  const day = parts.find((p) => p.type === 'day')?.value.padStart(2, '0') || '01';
+  const month = parts.find((p) => p.type === 'month')?.value.padStart(2, '0') || '01';
+  const year = parts.find((p) => p.type === 'year')?.value || String(d.getFullYear());
+
+  return `${day}/${month}/${year}`;
 }
 
 /** Formats a datetime string to time-only HH:MM in Asia/Jakarta (WIB) */
@@ -32,6 +49,40 @@ export function formatTime(dateStr: string): string {
 /** Returns today's date as YYYY-MM-DD string in Asia/Jakarta (WIB) */
 export function todayISO(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+}
+
+/**
+ * Returns a 1-month range anchored on the current date (tanggal berjalan) in Asia/Jakarta (WIB).
+ * Start: 1 month prior to today (e.g. 16/09/2026 if today is 16/10/2026).
+ * End: today (tanggal berjalan, e.g. 16/10/2026).
+ */
+export function getDefaultPayoutRange(): { start: string; end: string } {
+  const endIso = todayISO();
+  const [y, m, d] = endIso.split('-').map(Number);
+  
+  // Safe 1-month backward date calculation
+  const targetDate = new Date(y, m - 2, d);
+  const startYear = targetDate.getFullYear();
+  const startMonth = String(targetDate.getMonth() + 1).padStart(2, '0');
+  const startDay = String(targetDate.getDate()).padStart(2, '0');
+  const startIso = `${startYear}-${startMonth}-${startDay}`;
+
+  return { start: startIso, end: endIso };
+}
+
+/**
+ * Returns the calendar month range for the current month in Asia/Jakarta (WIB).
+ * Start: 1st of current month (e.g. 01/10/2026).
+ * End: last day of current month (e.g. 31/10/2026).
+ */
+export function getCurrentCalendarMonthRange(): { start: string; end: string } {
+  const todayStr = todayISO();
+  const [y, m] = todayStr.split('-').map(Number);
+  const startIso = `${y}-${String(m).padStart(2, '0')}-01`;
+  const lastDayDate = new Date(y, m, 0);
+  const lastDay = String(lastDayDate.getDate()).padStart(2, '0');
+  const endIso = `${y}-${String(m).padStart(2, '0')}-${lastDay}`;
+  return { start: startIso, end: endIso };
 }
 
 // ------------------------------------------------------------

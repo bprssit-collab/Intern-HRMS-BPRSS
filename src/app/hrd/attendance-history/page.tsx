@@ -139,9 +139,14 @@ export default function AttendanceHistoryPage() {
       <div className="glass-card p-4">
         <form onSubmit={handleFilterSubmit} className="flex flex-col sm:flex-row gap-3 items-end">
           <div className="space-y-1 w-full sm:w-48">
-            <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-orange-400" />
-              Pilih Tanggal
+            <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-orange-400" />
+                Pilih Tanggal
+              </span>
+              <span className="text-[11px] text-orange-400 font-mono font-normal">
+                {formatDateID(selectedDate)}
+              </span>
             </label>
             <input
               type="date"
