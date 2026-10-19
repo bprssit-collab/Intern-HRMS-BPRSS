@@ -40,8 +40,12 @@ export function decodeSessionToken(token: string): SessionUser | null {
     return {
       id: payload.id,
       name: payload.name,
+      username: payload.username || (payload.email ? payload.email.split('@')[0] : ''),
       email: payload.email,
       role: payload.role,
+      department: payload.department,
+      batch_id: payload.batch_id,
+      must_change_credentials: !!payload.must_change_credentials,
     };
   } catch {
     return null;
@@ -67,19 +71,25 @@ export async function getSession(): Promise<SessionUser | null> {
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('users')
-      .select('id, name, email, role, department, batch_id')
+      .select('*')
       .eq('id', decoded.id)
       .single();
 
     if (error || !data || !isValidRole(data.role)) return null;
 
+    const resolvedUsername =
+      data.username ||
+      (data.email ? data.email.split('@')[0] : data.name.toLowerCase().replace(/\s+/g, '.'));
+
     return {
       id: data.id,
       name: data.name,
-      email: data.email,
+      username: resolvedUsername,
+      email: data.email ?? undefined,
       role: data.role,
       department: data.department ?? undefined,
       batch_id: data.batch_id ?? undefined,
+      must_change_credentials: !!data.must_change_credentials,
     };
   } catch (err) {
     console.error('[auth] Failed to verify session user:', err);

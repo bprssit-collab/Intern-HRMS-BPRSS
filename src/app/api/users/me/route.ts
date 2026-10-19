@@ -24,7 +24,7 @@ export async function GET() {
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('users')
-      .select('id, name, email, role, department, batch_id, status, face_descriptor, created_at')
+      .select('*')
       .eq('id', session.id)
       .single();
 
@@ -35,7 +35,13 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ success: true, data });
+    const formatted = {
+      ...data,
+      username: data.username || (data.email ? data.email.split('@')[0] : data.name.toLowerCase().replace(/\s+/g, '.')),
+      must_change_credentials: !!data.must_change_credentials,
+    };
+
+    return NextResponse.json({ success: true, data: formatted });
   } catch (error) {
     console.error('[/api/users/me] Error:', error);
     return NextResponse.json(

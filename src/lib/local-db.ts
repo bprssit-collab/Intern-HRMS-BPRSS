@@ -18,12 +18,14 @@ export interface DatabaseSchema {
   users: Array<{
     id: string;
     name: string;
-    email: string;
+    username?: string;
+    email?: string;
     password_hash: string;
     role: 'intern' | 'intern_hrd' | 'staf_hrd' | 'kepala_hrd' | 'super_admin';
     department?: string;
     batch_id?: string;
     status?: 'active' | 'perbantuan' | 'completed';
+    must_change_credentials?: boolean;
     face_descriptor: number[] | null;
     created_at: string;
   }>;

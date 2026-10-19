@@ -44,7 +44,7 @@ export async function GET() {
     const [{ data: users, error }, { data: batches }] = await Promise.all([
       supabase
         .from('users')
-        .select('id, name, email, role, department, batch_id, status, face_descriptor, created_at')
+        .select('*')
         .order('created_at', { ascending: true }),
       supabase.from('batches').select('id, batch_number, name, is_active').order('batch_number', { ascending: false }),
     ]);
@@ -56,12 +56,14 @@ export async function GET() {
     const formatted = ((users as any[]) || []).map((u) => ({
       id: u.id,
       name: u.name,
-      email: u.email,
+      username: u.username || (u.email ? u.email.split('@')[0] : u.name.toLowerCase().replace(/\s+/g, '.')),
+      email: u.email || '',
       role: u.role,
       department: u.department || '',
       batch_id: u.batch_id || null,
       batch_name: u.batch_id ? batchName.get(u.batch_id) || '-' : '-',
       status: u.status || 'active',
+      must_change_credentials: !!u.must_change_credentials,
       has_face: Array.isArray(u.face_descriptor) && u.face_descriptor.length > 0,
       created_at: u.created_at,
     }));
@@ -84,10 +86,19 @@ export async function POST(request: NextRequest) {
     if (!session) return forbidden();
 
     const body = await request.json();
-    const { name, email, password, role, department, batch_id, status } = body;
+    const { name, username, email, password, role, department, batch_id, status } = body;
 
-    if (!name?.trim() || !email?.trim() || !password) {
-      return fail('Nama, email, dan password wajib diisi.');
+    const cleanName = String(name || '').trim();
+    const cleanUsername = String(username || (email ? email.split('@')[0] : '')).trim().toLowerCase();
+
+    if (!cleanName || !cleanUsername || !password) {
+      return fail('Nama, username, dan password wajib diisi.');
+    }
+    if (cleanUsername.length < 3 || cleanUsername.length > 30) {
+      return fail('Username harus memiliki panjang antara 3 sampai 30 karakter.');
+    }
+    if (!/^[a-z0-9._]+$/.test(cleanUsername)) {
+      return fail('Username hanya boleh terdiri dari huruf kecil, angka, titik (.), atau garis bawah (_).');
     }
     if (String(password).length < MIN_PASSWORD_LENGTH) {
       return fail(`Password minimal ${MIN_PASSWORD_LENGTH} karakter.`);
@@ -99,42 +110,50 @@ export async function POST(request: NextRequest) {
       return fail('Status tidak valid.');
     }
 
-    const normalizedEmail = String(email).trim().toLowerCase();
     const supabase = createAdminClient();
 
-    const { data: existing } = await supabase
+    // Check duplicate username
+    const { data: existingUser } = await supabase
       .from('users')
       .select('id')
-      .eq('email', normalizedEmail)
+      .ilike('username', cleanUsername)
       .single();
 
-    if (existing) {
-      return fail('Email sudah terdaftar.', 409);
+    if (existingUser) {
+      return fail('Username sudah terpakai, silakan gunakan username lain.', 409);
     }
 
     const passwordHash = await bcrypt.hash(String(password), 10);
+    const normalizedEmail = email ? String(email).trim().toLowerCase() : `${cleanUsername}@intern.bprsehat.com`;
 
     const { data: created, error } = await supabase
       .from('users')
       .insert({
-        name: String(name).trim(),
+        name: cleanName,
+        username: cleanUsername,
         email: normalizedEmail,
         password_hash: passwordHash,
         role,
         department: department || null,
         batch_id: batch_id || null,
         status: status || 'active',
+        must_change_credentials: role === 'intern',
         face_descriptor: null,
       })
-      .select('id, name, email, role, department, batch_id, status')
+      .select('id, name, username, email, role, department, batch_id, status')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23505') {
+        return fail('Username sudah terpakai, silakan gunakan username lain.', 409);
+      }
+      throw error;
+    }
 
     return NextResponse.json({
       success: true,
       data: created,
-      message: `Akun ${created.name} berhasil dibuat.`,
+      message: `Akun ${created.name} (${cleanUsername}) berhasil dibuat.`,
     });
   } catch (error: any) {
     console.error('[/api/admin/users POST] Error:', error);
@@ -148,7 +167,7 @@ export async function PUT(request: NextRequest) {
     if (!session) return forbidden();
 
     const body = await request.json();
-    const { id, name, email, password, role, department, batch_id, status } = body;
+    const { id, name, username, email, password, role, department, batch_id, status } = body;
 
     if (!id) return fail('ID pengguna diperlukan.');
 
@@ -169,19 +188,41 @@ export async function PUT(request: NextRequest) {
       payload.name = String(name).trim();
     }
 
-    if (email !== undefined) {
-      const normalizedEmail = String(email).trim().toLowerCase();
-      if (!normalizedEmail) return fail('Email tidak boleh kosong.');
+    if (username !== undefined) {
+      const cleanUsername = String(username).trim().toLowerCase();
+      if (!cleanUsername) return fail('Username tidak boleh kosong.');
+      if (cleanUsername.length < 3 || cleanUsername.length > 30) {
+        return fail('Username harus memiliki panjang antara 3 sampai 30 karakter.');
+      }
+      if (!/^[a-z0-9._]+$/.test(cleanUsername)) {
+        return fail('Username hanya boleh terdiri dari huruf kecil, angka, titik (.), atau garis bawah (_).');
+      }
 
-      const { data: dup } = await supabase
+      const { data: dupUser } = await supabase
         .from('users')
         .select('id')
-        .eq('email', normalizedEmail)
+        .ilike('username', cleanUsername)
         .neq('id', id)
         .single();
-      if (dup) return fail('Email sudah digunakan akun lain.', 409);
 
-      payload.email = normalizedEmail;
+      if (dupUser) {
+        return fail('Username sudah terpakai, silakan gunakan username lain.', 409);
+      }
+      payload.username = cleanUsername;
+    }
+
+    if (email !== undefined) {
+      const normalizedEmail = String(email).trim().toLowerCase();
+      if (normalizedEmail) {
+        const { data: dup } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', normalizedEmail)
+          .neq('id', id)
+          .single();
+        if (dup) return fail('Email sudah digunakan akun lain.', 409);
+        payload.email = normalizedEmail;
+      }
     }
 
     if (role !== undefined && role !== target.role) {

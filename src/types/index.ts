@@ -12,11 +12,13 @@ export type InternStatus = 'active' | 'perbantuan' | 'completed';
 export interface User {
   id: string;
   name: string;
-  email: string;
+  username: string;
+  email?: string;
   role: UserRole;
   department?: string;        // e.g. CS, Teller UNPAM, SDM, Accounting, Kepatuhan, Kredit, Audit, Social Media
   batch_id?: string;          // FK -> batches.id
   status?: InternStatus;      // 'active' | 'perbantuan' | 'completed'
+  must_change_credentials?: boolean;
   face_descriptor?: number[] | null; // 128-float array from face-api.js
   created_at: string;
 }
@@ -76,10 +78,12 @@ export interface Attendance {
 export interface SessionUser {
   id: string;
   name: string;
-  email: string;
+  username: string;
+  email?: string;
   role: UserRole;
   department?: string;
   batch_id?: string;
+  must_change_credentials?: boolean;
 }
 
 // ============================================================

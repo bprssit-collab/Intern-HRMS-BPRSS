@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Mail, ArrowRight, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { Lock, User as UserIcon, ArrowRight, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -21,7 +21,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       const json = await res.json();
@@ -63,17 +63,19 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-5">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-300 ml-1">Email</label>
+            <label className="text-sm font-medium text-slate-300 ml-1">Username</label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+              <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
               <input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                autoCapitalize="none"
+                autoCorrect="off"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="input-field has-icon !pl-12"
                 style={{ paddingLeft: '3rem' }}
-                placeholder="nama@bprsehat.com"
+                placeholder="Contoh: budi.santoso / superadmin"
               />
             </div>
           </div>
@@ -121,57 +123,57 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => {
-                setEmail('superadmin@bprsehat.com');
+                setUsername('superadmin');
                 setPassword('admin123');
               }}
               className="px-2.5 py-2 bg-purple-500/10 hover:bg-purple-500/20 hover:border-purple-500/40 border border-purple-500/30 rounded-lg text-left transition-all group"
             >
               <span className="block font-semibold text-purple-300 group-hover:underline text-[11px]">⚡ Super Admin</span>
-              <span className="text-[10px] text-slate-400 truncate block">superadmin@bpr...</span>
+              <span className="text-[10px] text-slate-400 truncate block">superadmin</span>
             </button>
             <button
               type="button"
               onClick={() => {
-                setEmail('kepala.hrd@bprsehat.com');
+                setUsername('kepala.hrd');
                 setPassword('kepala123');
               }}
               className="px-2.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 hover:border-emerald-500/40 border border-emerald-500/30 rounded-lg text-left transition-all group"
             >
               <span className="block font-medium text-emerald-400 group-hover:underline text-[11px]">👑 Kepala HRD</span>
-              <span className="text-[10px] text-slate-400 truncate block">kepala.hrd@bpr...</span>
+              <span className="text-[10px] text-slate-400 truncate block">kepala.hrd</span>
             </button>
             <button
               type="button"
               onClick={() => {
-                setEmail('staf.hrd@bprsehat.com');
+                setUsername('staf.hrd');
                 setPassword('staf123');
               }}
               className="px-2.5 py-2 bg-teal-500/10 hover:bg-teal-500/20 hover:border-teal-500/40 border border-teal-500/30 rounded-lg text-left transition-all group"
             >
               <span className="block font-medium text-teal-300 group-hover:underline text-[11px]">📋 Staf HRD</span>
-              <span className="text-[10px] text-slate-400 truncate block">staf.hrd@bpr...</span>
+              <span className="text-[10px] text-slate-400 truncate block">staf.hrd</span>
             </button>
             <button
               type="button"
               onClick={() => {
-                setEmail('alfiani@intern.bprsehat.com');
+                setUsername('alfiani');
                 setPassword('intern123');
               }}
               className="px-2.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-500/40 border border-amber-500/30 rounded-lg text-left transition-all group"
             >
               <span className="block font-medium text-amber-300 group-hover:underline text-[11px]">💼 Intern HRD</span>
-              <span className="text-[10px] text-slate-400 truncate block">alfiani@intern...</span>
+              <span className="text-[10px] text-slate-400 truncate block">alfiani</span>
             </button>
             <button
               type="button"
               onClick={() => {
-                setEmail('budi@intern.bprsehat.com');
+                setUsername('budi');
                 setPassword('intern123');
               }}
               className="px-2.5 py-2 bg-blue-500/10 hover:bg-blue-500/20 hover:border-blue-500/40 border border-blue-500/30 rounded-lg text-left transition-all group col-span-2 sm:col-span-1"
             >
               <span className="block font-medium text-blue-400 group-hover:underline text-[11px]">🎓 Intern Biasa</span>
-              <span className="text-[10px] text-slate-400 truncate block">budi@intern...</span>
+              <span className="text-[10px] text-slate-400 truncate block">budi</span>
             </button>
           </div>
         </div>

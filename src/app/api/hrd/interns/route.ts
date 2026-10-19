@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('users')
-      .select('id, name, email, role, department, batch_id, status, face_descriptor, created_at')
+      .select('id, name, username, email, role, department, batch_id, status, face_descriptor, created_at')
       .in('role', ATTENDEE_ROLES);
 
     if (batchId) {
@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
     const formatted = ((interns as any[]) || []).map((u) => ({
       id: u.id,
       name: u.name,
+      username: u.username || (u.email ? u.email.split('@')[0] : ''),
       email: u.email,
       role: u.role,
       department: u.department || 'Umum',
@@ -88,43 +89,49 @@ export async function POST(request: NextRequest) {
     if (!session) return forbidden();
 
     const body = await request.json();
-    const { name, email, department, batch_id, status, password } = body;
+    const { name, username, email, department, batch_id, status, password } = body;
 
-    if (!name || !email) {
+    const rawUsername = username || (email ? email.split('@')[0] : '') || (name ? name.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+    const cleanUsername = rawUsername.trim().toLowerCase();
+
+    if (!name || !cleanUsername) {
       return NextResponse.json(
-        { success: false, error: 'Nama dan email wajib diisi.' },
+        { success: false, error: 'Nama dan username wajib diisi.' },
         { status: 400 }
       );
     }
 
     const supabase = createAdminClient();
 
-    // Check duplicate email
-    const { data: existing } = await supabase
+    // Check duplicate username
+    const { data: existingUser } = await supabase
       .from('users')
       .select('id')
-      .eq('email', email.trim().toLowerCase())
-      .single();
+      .ilike('username', cleanUsername)
+      .maybeSingle();
 
-    if (existing) {
+    if (existingUser) {
       return NextResponse.json(
-        { success: false, error: 'Email sudah terdaftar.' },
+        { success: false, error: 'Username sudah terpakai, silakan gunakan username lain.' },
         { status: 409 }
       );
     }
 
-    const passwordHash = await bcrypt.hash(password || 'intern123', 10);
+    const passwordHash = await bcrypt.hash(password || 'magang2026', 10);
+    const userEmail = email ? email.trim().toLowerCase() : `${cleanUsername}@intern.bprsehat.com`;
 
     const { data: newIntern, error } = await supabase
       .from('users')
       .insert({
         name: name.trim(),
-        email: email.trim().toLowerCase(),
+        username: cleanUsername,
+        email: userEmail,
         password_hash: passwordHash,
         role: 'intern',
         department: department || 'CS',
         batch_id: batch_id || null,
         status: status || 'active',
+        must_change_credentials: true,
         face_descriptor: null,
       })
       .select()
@@ -152,7 +159,7 @@ export async function PUT(request: NextRequest) {
     if (!session) return forbidden();
 
     const body = await request.json();
-    const { id, name, email, department, batch_id, status } = body;
+    const { id, name, username, email, department, batch_id, status } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -179,6 +186,23 @@ export async function PUT(request: NextRequest) {
 
     const payload: any = {};
     if (name) payload.name = name.trim();
+    if (username) {
+      const cleanUsername = username.trim().toLowerCase();
+      const { data: duplicate } = await supabase
+        .from('users')
+        .select('id')
+        .ilike('username', cleanUsername)
+        .neq('id', id)
+        .maybeSingle();
+
+      if (duplicate) {
+        return NextResponse.json(
+          { success: false, error: 'Username sudah terpakai, silakan gunakan username lain.' },
+          { status: 409 }
+        );
+      }
+      payload.username = cleanUsername;
+    }
     if (email) payload.email = email.trim().toLowerCase();
     if (department !== undefined) payload.department = department;
     if (batch_id !== undefined) payload.batch_id = batch_id;

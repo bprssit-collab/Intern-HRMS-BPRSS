@@ -21,6 +21,7 @@ import type { User, Batch } from '@/types';
 interface InternItem {
   id: string;
   name: string;
+  username?: string;
   email: string;
   department: string;
   batch_id: string;
@@ -130,6 +131,7 @@ export default function InternsPage() {
   const openCreateModal = () => {
     setEditingIntern({
       name: '',
+      username: '',
       email: '',
       department: 'CS',
       batch_id: batches[0]?.id || '',
@@ -197,7 +199,8 @@ export default function InternsPage() {
   const filteredInterns = interns.filter((i) => {
     const matchesSearch =
       i.name.toLowerCase().includes(search.toLowerCase()) ||
-      i.email.toLowerCase().includes(search.toLowerCase()) ||
+      (i.username && i.username.toLowerCase().includes(search.toLowerCase())) ||
+      (i.email && i.email.toLowerCase().includes(search.toLowerCase())) ||
       i.department.toLowerCase().includes(search.toLowerCase());
     const matchesDept = selectedDept === 'ALL' || i.department === selectedDept;
     const matchesStatus = selectedStatus === 'ALL' || i.status === selectedStatus;
@@ -263,7 +266,7 @@ export default function InternsPage() {
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <input
             type="text"
-            placeholder="Cari nama, email, atau bagian..."
+            placeholder="Cari nama, username, atau bagian..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="input-field has-icon text-sm w-full !pl-11"
@@ -326,7 +329,7 @@ export default function InternsPage() {
             <table className="w-full text-left text-sm">
               <thead className="bg-white/5 border-b border-white/5 text-slate-400 text-xs uppercase font-semibold">
                 <tr>
-                  <th className="py-3 px-4">Nama & Email</th>
+                  <th className="py-3 px-4">Nama & Username</th>
                   <th className="py-3 px-4">Bagian / Divisi</th>
                   <th className="py-3 px-4">Batch</th>
                   <th className="py-3 px-4">Status Magang</th>
@@ -340,7 +343,7 @@ export default function InternsPage() {
                     <tr key={intern.id} className="hover:bg-white/5 transition-colors">
                       <td className="py-3.5 px-4">
                         <div className="font-semibold text-white">{intern.name}</div>
-                        <div className="text-xs text-slate-400 font-mono">{intern.email}</div>
+                        <div className="text-xs text-slate-400 font-mono">@{intern.username || intern.email}</div>
                       </td>
                       <td className="py-3.5 px-4">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 text-slate-200 border border-white/10 text-xs font-medium">
@@ -457,14 +460,16 @@ export default function InternsPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-300">Email Akun</label>
+                <label className="text-xs font-medium text-slate-300">
+                  Username Akun <span className="text-cyan-400 font-normal">(Harus unik)</span>
+                </label>
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={editingIntern.email || ''}
-                  onChange={(e) => setEditingIntern({ ...editingIntern, email: e.target.value })}
+                  value={editingIntern.username || ''}
+                  onChange={(e) => setEditingIntern({ ...editingIntern, username: e.target.value.toLowerCase().trim() })}
                   className="input-field text-sm font-mono"
-                  placeholder="alfiani@intern.bprsehat.com"
+                  placeholder="contoh: alfiani"
                 />
               </div>
 
@@ -556,7 +561,7 @@ export default function InternsPage() {
             </h2>
             <p className="text-slate-300 text-xs leading-relaxed mb-4">
               Tindakan ini akan <strong className="text-rose-300">menghapus data biometrik wajah (128D Face Descriptor)</strong> milik{' '}
-              <span className="text-white font-semibold">{resetFaceTarget.name}</span> ({resetFaceTarget.email}).
+              <span className="text-white font-semibold">{resetFaceTarget.name}</span> (@{resetFaceTarget.username || resetFaceTarget.email}).
             </p>
             <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] mb-5">
               ⚠️ Setelah dihapus, anak magang harus melakukan registrasi/rekam ulang wajah saat hendak melakukan absensi berikutnya.

@@ -18,18 +18,23 @@ import {
   KeyRound,
   Eye,
   EyeOff,
+  Users,
+  Sparkles,
 } from 'lucide-react';
 import type { UserRole } from '@/types';
+import { BulkUserModal } from '@/components/bulk-user-modal';
 
 interface UserItem {
   id: string;
   name: string;
+  username: string;
   email: string;
   role: UserRole;
   department: string;
   batch_id: string | null;
   batch_name: string;
   status: string;
+  must_change_credentials?: boolean;
   has_face: boolean;
   created_at: string;
 }
@@ -67,6 +72,9 @@ export default function UsersManagementPage() {
   const [search, setSearch] = useState('');
   const [selectedRole, setSelectedRole] = useState('ALL');
   const [selectedDept, setSelectedDept] = useState('ALL');
+
+  // Bulk Registration Modal State
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -110,6 +118,7 @@ export default function UsersManagementPage() {
     const activeBatch = batches.find((b) => b.is_active);
     setEditingUser({
       name: '',
+      username: '',
       email: '',
       password: '',
       role: 'intern',
@@ -126,6 +135,7 @@ export default function UsersManagementPage() {
     setEditingUser({
       id: user.id,
       name: user.name,
+      username: user.username,
       email: user.email,
       password: '',
       role: user.role,
@@ -180,7 +190,7 @@ export default function UsersManagementPage() {
       return;
     }
 
-    const confirmMsg = `Peringatan: Anda akan MENGHAPUS akun "${user.name}" (${user.email}).\n\nSemua data kehadiran, log absensi, dan data wajah pengguna ini akan ikut terhapus secara permanen.\n\nLanjutkan?`;
+    const confirmMsg = `Peringatan: Anda akan MENGHAPUS akun "${user.name}" (@${user.username}).\n\nSemua data kehadiran, log absensi, dan data wajah pengguna ini akan ikut terhapus secara permanen.\n\nLanjutkan?`;
     if (!window.confirm(confirmMsg)) return;
 
     setDeletingId(user.id);
@@ -209,7 +219,8 @@ export default function UsersManagementPage() {
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
       u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
+      (u.username && u.username.toLowerCase().includes(search.toLowerCase())) ||
+      (u.email && u.email.toLowerCase().includes(search.toLowerCase())) ||
       u.department.toLowerCase().includes(search.toLowerCase());
     const matchesRole = selectedRole === 'ALL' || u.role === selectedRole;
     const matchesDept = selectedDept === 'ALL' || u.department === selectedDept;
@@ -231,17 +242,26 @@ export default function UsersManagementPage() {
             </span>
           </div>
           <p className="text-slate-400 text-sm">
-            Kelola seluruh akun, ganti role (misal: Intern biasa ke Intern HRD), ubah password, dan kelola akses portal.
+            Kelola seluruh akun dengan username unik, generate massal untuk anak magang, atau kelola hak akses sistem.
           </p>
         </div>
 
-        <button
-          onClick={openCreateModal}
-          className="btn-primary text-sm flex items-center gap-2 self-start sm:self-auto bg-purple-600 hover:bg-purple-500 border-purple-400"
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Akun Baru
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+          <button
+            onClick={() => setIsBulkModalOpen(true)}
+            className="btn-primary text-sm flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 border-purple-400 shadow-lg shadow-purple-600/20"
+          >
+            <Users className="w-4 h-4" />
+            Pendaftaran Massal (Gelondongan)
+          </button>
+          <button
+            onClick={openCreateModal}
+            className="btn-secondary text-sm flex items-center gap-2 border-white/20 hover:border-white/40"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Satu Akun
+          </button>
+        </div>
       </div>
 
       {actionFeedback && (
@@ -348,7 +368,7 @@ export default function UsersManagementPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-white/5 border-b border-white/5 text-slate-400 uppercase font-semibold">
                 <tr>
-                  <th className="py-3 px-4">Nama & Email</th>
+                  <th className="py-3 px-4">Nama & Username</th>
                   <th className="py-3 px-4">Role Akses</th>
                   <th className="py-3 px-4">Bagian</th>
                   <th className="py-3 px-4">Batch</th>
@@ -372,8 +392,13 @@ export default function UsersManagementPage() {
                               AKUN ANDA
                             </span>
                           )}
+                          {u.must_change_credentials && (
+                            <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-bold" title="Kredensial Default - Wajib ganti saat login pertama">
+                              DEFAULT
+                            </span>
+                          )}
                         </div>
-                        <div className="text-[11px] text-slate-500 font-mono mt-0.5">{u.email}</div>
+                        <div className="text-[11px] text-cyan-400 font-mono mt-0.5">@{u.username}</div>
                       </td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${meta.color}`}>
@@ -481,14 +506,16 @@ export default function UsersManagementPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-300">Email</label>
+                <label className="text-xs font-semibold text-slate-300">
+                  Username <span className="text-purple-400 font-normal">(Harus unik, huruf kecil, angka, titik, strip)</span>
+                </label>
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={editingUser.email || ''}
-                  onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-                  className="input-field text-xs"
-                  placeholder="nama@intern.bprsehat.com"
+                  value={editingUser.username || ''}
+                  onChange={(e) => setEditingUser({ ...editingUser, username: e.target.value.toLowerCase().trim() })}
+                  className="input-field text-xs font-mono"
+                  placeholder="contoh: budi.santoso"
                 />
               </div>
 
@@ -608,6 +635,20 @@ export default function UsersManagementPage() {
           </div>
         </div>
       )}
+
+      {/* Bulk User Registration Modal */}
+      <BulkUserModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        batches={batches}
+        onSuccess={() => {
+          fetchUsers();
+          setActionFeedback({
+            type: 'success',
+            text: 'Akun massal berhasil didaftarkan.',
+          });
+        }}
+      />
     </div>
   );
 }

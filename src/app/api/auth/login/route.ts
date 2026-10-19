@@ -13,28 +13,60 @@ import type { SessionUser } from '@/types';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const rawIdentifier = (body.username || body.email || '').trim().toLowerCase();
+    const password = body.password;
 
     // Basic validation
-    if (!email || !password) {
+    if (!rawIdentifier || !password) {
       return NextResponse.json(
-        { success: false, error: 'Email dan password diperlukan.' },
+        { success: false, error: 'Username dan password diperlukan.' },
         { status: 400 }
       );
     }
 
     const supabase = createAdminClient();
+    let user: any = null;
 
-    // Fetch user by email
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('id, name, email, role, password_hash')
-      .eq('email', email.trim().toLowerCase())
-      .single();
+    // 1. Try querying by username first
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .ilike('username', rawIdentifier)
+        .single();
+      if (!error && data) {
+        user = data;
+      }
+    } catch {
+      // In case username column is being initialized
+    }
 
-    if (error || !user) {
+    // 2. Fallback to email search or prefix match
+    if (!user) {
+      const { data: userByEmail } = await supabase
+        .from('users')
+        .select('*')
+        .ilike('email', rawIdentifier)
+        .single();
+
+      if (userByEmail) {
+        user = userByEmail;
+      } else {
+        // Try matching prefix of email
+        const { data: allUsers } = await supabase.from('users').select('*');
+        if (allUsers) {
+          user = allUsers.find((u: any) => {
+            const uName = (u.username || '').toLowerCase();
+            const emailPrefix = (u.email || '').split('@')[0].toLowerCase();
+            return uName === rawIdentifier || emailPrefix === rawIdentifier;
+          });
+        }
+      }
+    }
+
+    if (!user) {
       return NextResponse.json(
-        { success: false, error: 'Email atau password salah.' },
+        { success: false, error: 'Username atau password salah.' },
         { status: 401 }
       );
     }
@@ -43,7 +75,7 @@ export async function POST(request: NextRequest) {
     const passwordValid = await bcrypt.compare(password, user.password_hash);
     if (!passwordValid) {
       return NextResponse.json(
-        { success: false, error: 'Email atau password salah.' },
+        { success: false, error: 'Username atau password salah.' },
         { status: 401 }
       );
     }
@@ -55,12 +87,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const resolvedUsername =
+      user.username ||
+      (user.email ? user.email.split('@')[0] : user.name.toLowerCase().replace(/\s+/g, '.'));
+
     // Create session
     const sessionUser: SessionUser = {
       id: user.id,
       name: user.name,
-      email: user.email,
+      username: resolvedUsername,
+      email: user.email ?? undefined,
       role: user.role,
+      department: user.department ?? undefined,
+      batch_id: user.batch_id ?? undefined,
+      must_change_credentials: !!user.must_change_credentials,
     };
 
     const token = createSessionToken(sessionUser);

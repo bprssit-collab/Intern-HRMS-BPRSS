@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import Link from 'next/link';
 import { LayoutDashboard, Camera, LogOut, ScanFace } from 'lucide-react';
-import { LogoutButton } from './logout-button'; // Will create this client component
+import { LogoutButton } from './logout-button';
+import { ChangeCredentialsModal } from '@/components/change-credentials-modal';
 
 export default async function InternLayout({
   children,
@@ -17,6 +18,10 @@ export default async function InternLayout({
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 pb-20 sm:pb-0">
+      <ChangeCredentialsModal
+        initialMustChange={session.must_change_credentials}
+        currentUser={session}
+      />
       {/* Mobile-first top header */}
       <header className="bg-slate-900 border-b border-white/10 p-4 sticky top-0 z-40">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
