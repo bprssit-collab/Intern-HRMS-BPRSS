@@ -2,17 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { PayoutTable } from '@/components/payout-table';
-import { Search, Loader2, AlertCircle, Calendar, Sparkles } from 'lucide-react';
+import { Search, Loader2, AlertCircle, Calendar } from 'lucide-react';
 import type { PayoutSummary } from '@/types';
 import {
-  getDefaultPayoutRange,
   getCurrentCalendarMonthRange,
   formatDateID,
 } from '@/lib/utils';
 
 export default function PayoutPage() {
-  // Default: rentang 1 bulan berdasarkan tanggal berjalan (e.g. 1 bulan ke belakang s/d hari ini)
-  const defaultRange = getDefaultPayoutRange();
+  // Default: rentang 1 bulan kalender (tanggal 1 s/d akhir bulan berjalan)
+  const defaultRange = getCurrentCalendarMonthRange();
 
   const [startDate, setStartDate] = useState(defaultRange.start);
   const [endDate, setEndDate] = useState(defaultRange.end);
@@ -60,7 +59,7 @@ export default function PayoutPage() {
     }
   };
 
-  // Load automatically on mount with default 1-month range
+  // Load automatically on mount with default current calendar month range
   useEffect(() => {
     fetchPayoutData(defaultRange.start, defaultRange.end);
   }, []);
@@ -101,17 +100,10 @@ export default function PayoutPage() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => handleApplyPreset(getDefaultPayoutRange())}
+              onClick={() => handleApplyPreset(getCurrentCalendarMonthRange())}
               className="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-medium transition-colors flex items-center gap-1.5"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              1 Bulan Berjalan (Default)
-            </button>
-            <button
-              type="button"
-              onClick={() => handleApplyPreset(getCurrentCalendarMonthRange())}
-              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-medium transition-colors"
-            >
+              <Calendar className="w-3.5 h-3.5" />
               Bulan Kalender Ini
             </button>
           </div>
