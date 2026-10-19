@@ -119,12 +119,7 @@ export default function PayoutPage() {
 
         <form onSubmit={handleFormSubmit} className="flex flex-col sm:flex-row gap-4 items-end">
           <div className="flex-1 w-full space-y-1">
-            <label className="text-xs font-semibold text-slate-300 ml-1 flex items-center justify-between">
-              <span>Dari Tanggal</span>
-              <span className="text-[11px] text-amber-400 font-normal font-mono">
-                {formatDateID(startDate)}
-              </span>
-            </label>
+            <label className="text-xs font-semibold text-slate-300 ml-1">Dari Tanggal</label>
             <input
               type="date"
               required
@@ -135,12 +130,7 @@ export default function PayoutPage() {
           </div>
 
           <div className="flex-1 w-full space-y-1">
-            <label className="text-xs font-semibold text-slate-300 ml-1 flex items-center justify-between">
-              <span>Sampai Tanggal</span>
-              <span className="text-[11px] text-amber-400 font-normal font-mono">
-                {formatDateID(endDate)}
-              </span>
-            </label>
+            <label className="text-xs font-semibold text-slate-300 ml-1">Sampai Tanggal</label>
             <input
               type="date"
               required

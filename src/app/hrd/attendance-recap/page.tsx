@@ -412,10 +412,7 @@ export default function AttendanceRecapPage() {
             </div>
 
             <div className="space-y-1 w-full lg:w-40">
-              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                <span>Dari Tanggal</span>
-                <span className="text-[11px] text-amber-400 font-mono font-normal">{formatDateID(startDate)}</span>
-              </label>
+              <label className="text-xs font-semibold text-slate-300">Dari Tanggal</label>
               <input
                 type="date"
                 required
@@ -426,10 +423,7 @@ export default function AttendanceRecapPage() {
             </div>
 
             <div className="space-y-1 w-full lg:w-40">
-              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                <span>Sampai Tanggal</span>
-                <span className="text-[11px] text-amber-400 font-mono font-normal">{formatDateID(endDate)}</span>
-              </label>
+              <label className="text-xs font-semibold text-slate-300">Sampai Tanggal</label>
               <input
                 type="date"
                 required

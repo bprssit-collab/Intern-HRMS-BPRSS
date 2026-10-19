@@ -254,12 +254,7 @@ export default function BatchesPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-slate-300 flex items-center justify-between">
-                    <span>Tanggal Mulai</span>
-                    <span className="text-[11px] text-indigo-400 font-mono font-normal">
-                      {editingBatch.start_date ? formatDateID(editingBatch.start_date) : ''}
-                    </span>
-                  </label>
+                  <label className="text-xs font-medium text-slate-300">Tanggal Mulai</label>
                   <input
                     type="date"
                     required
@@ -269,12 +264,7 @@ export default function BatchesPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-slate-300 flex items-center justify-between">
-                    <span>Tanggal Selesai (6 Bulan)</span>
-                    <span className="text-[11px] text-indigo-400 font-mono font-normal">
-                      {editingBatch.end_date ? formatDateID(editingBatch.end_date) : ''}
-                    </span>
-                  </label>
+                  <label className="text-xs font-medium text-slate-300">Tanggal Selesai (6 Bulan)</label>
                   <input
                     type="date"
                     required
