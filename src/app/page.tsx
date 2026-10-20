@@ -51,7 +51,7 @@ export default function LoginPage() {
       <div className="glass-card w-full max-w-md p-8 relative z-10 animate-fade-in">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-white mb-2">PT BPR Sehat Sejahtera</h1>
-          <p className="text-slate-400">Portal Absensi & Uang Saku Intern</p>
+          <p className="text-slate-400">Portal Absensi Intern</p>
         </div>
 
         {error && (
