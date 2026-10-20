@@ -114,6 +114,10 @@ export default async function HrdLayout({
                   <UserCog className="w-4 h-4 text-purple-400" />
                   <span className="font-medium text-sm">Manajemen Akun</span>
                 </Link>
+                <Link href="/hrd/departments" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-purple-500/10 hover:text-purple-200 border border-purple-500/20 transition-colors">
+                  <Building2 className="w-4 h-4 text-purple-400" />
+                  <span className="font-medium text-sm">Manajemen Divisi</span>
+                </Link>
               </nav>
             </>
           )}
@@ -172,7 +176,10 @@ export default async function HrdLayout({
             </>
           )}
           {isSuperAdmin && (
-            <Link href="/hrd/users" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-purple-400">Kelola Akun</Link>
+            <>
+              <Link href="/hrd/users" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-purple-400">Kelola Akun</Link>
+              <Link href="/hrd/departments" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-purple-400">Kelola Divisi</Link>
+            </>
           )}
         </nav>
 

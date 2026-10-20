@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Users,
   Plus,
@@ -17,7 +17,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
-const DEPARTMENTS = [
+const DEFAULT_DEPARTMENTS = [
   'CS',
   'Teller UNPAM',
   'SDM',
@@ -29,23 +29,6 @@ const DEPARTMENTS = [
   'Operasional',
   'IT',
   'Umum',
-];
-
-const DEFAULT_REFERENCE_INTERNS = [
-  { department: 'CS', name: 'Budi Santoso' },
-  { department: 'CS', name: 'Alfiani Nutriana Ayu' },
-  { department: 'Teller UNPAM', name: 'Elsya Yunita Simangunsong' },
-  { department: 'Teller UNPAM', name: 'Puan Maharani' },
-  { department: 'Teller UNPAM', name: 'Novita Al Fitri Daeng' },
-  { department: 'SDM', name: 'Felisitas Erselin' },
-  { department: 'Accounting', name: 'Listiyani' },
-  { department: 'Kepatuhan', name: 'Mustika Wulan' },
-  { department: 'Kepatuhan', name: 'Muhammad Rizq Noval' },
-  { department: 'Kredit', name: 'Eki Ramdani Sopyana' },
-  { department: 'Kredit', name: 'Nesya Chintiya Bella' },
-  { department: 'Audit', name: 'Bintang Reira Putri Hanafi' },
-  { department: 'Social Media', name: 'Rosmita Fathia Hidayat' },
-  { department: 'Social Media', name: 'Valdis Sandya Akhjan' },
 ];
 
 interface BulkUserModalProps {
@@ -64,6 +47,7 @@ interface InternRow {
 export function BulkUserModal({ isOpen, onClose, batches, onSuccess }: BulkUserModalProps) {
   const activeBatch = batches.find((b) => b.is_active) || batches[0];
 
+  const [departments, setDepartments] = useState<string[]>(DEFAULT_DEPARTMENTS);
   const [activeTab, setActiveTab] = useState<'table' | 'paste'>('table');
   const [rows, setRows] = useState<InternRow[]>([
     { id: '1', department: 'CS', name: '' },
@@ -77,19 +61,40 @@ export function BulkUserModal({ isOpen, onClose, batches, onSuccess }: BulkUserM
   const [resultData, setResultData] = useState<any[] | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Fetch dynamic departments
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch('/api/admin/departments')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const names = json.data.map((d: any) => d.name);
+          setDepartments(names);
+          // Set initial row default department to first available if needed
+          setRows((prev) =>
+            prev.map((r) => ({
+              ...r,
+              department: names.includes(r.department) ? r.department : names[0] || 'CS',
+            }))
+          );
+        }
+      })
+      .catch((err) => console.warn('Gagal memuat departemen dinamis:', err));
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleAddRow = () => {
     setRows((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), department: 'CS', name: '' },
+      { id: crypto.randomUUID(), department: departments[0] || 'CS', name: '' },
     ]);
   };
 
   const handleAddFiveRows = () => {
     const newItems: InternRow[] = Array.from({ length: 5 }).map(() => ({
       id: crypto.randomUUID(),
-      department: 'CS',
+      department: departments[0] || 'CS',
       name: '',
     }));
     setRows((prev) => [...prev, ...newItems]);
@@ -103,17 +108,6 @@ export function BulkUserModal({ isOpen, onClose, batches, onSuccess }: BulkUserM
     setRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, [field]: val } : r))
     );
-  };
-
-  const handleLoadReference = () => {
-    setRows(
-      DEFAULT_REFERENCE_INTERNS.map((item) => ({
-        id: crypto.randomUUID(),
-        department: item.department,
-        name: item.name,
-      }))
-    );
-    setError(null);
   };
 
   const handleConvertPaste = () => {
@@ -383,18 +377,6 @@ export function BulkUserModal({ isOpen, onClose, batches, onSuccess }: BulkUserM
                     Paste dari Excel / Teks
                   </button>
                 </div>
-
-                {activeTab === 'table' && (
-                  <button
-                    type="button"
-                    onClick={handleLoadReference}
-                    className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-amber-300 border border-amber-500/30 text-[11px] flex items-center gap-1 transition-colors"
-                    title="Muat 14 daftar anak magang dari data referensi spreadsheet"
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    Muat 14 Data Referensi
-                  </button>
-                )}
               </div>
 
               {error && (
@@ -427,7 +409,7 @@ export function BulkUserModal({ isOpen, onClose, batches, onSuccess }: BulkUserM
                                 onChange={(e) => handleUpdateRow(row.id, 'department', e.target.value)}
                                 className="input-field text-xs py-1 !bg-slate-900 !text-slate-100"
                               >
-                                {DEPARTMENTS.map((d) => (
+                                {departments.map((d) => (
                                   <option key={d} value={d} className="bg-slate-900 text-slate-100">
                                     {d}
                                   </option>

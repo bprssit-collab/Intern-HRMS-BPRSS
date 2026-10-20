@@ -39,7 +39,7 @@ interface UserItem {
   created_at: string;
 }
 
-const DEPARTMENTS = [
+const DEFAULT_DEPARTMENTS = [
   'CS',
   'Teller UNPAM',
   'SDM',
@@ -64,6 +64,7 @@ const ROLES_META: Record<UserRole, { label: string; badge: string; color: string
 export default function UsersManagementPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [batches, setBatches] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
+  const [departments, setDepartments] = useState<string[]>(DEFAULT_DEPARTMENTS);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,18 +92,29 @@ export default function UsersManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/users');
-      if (res.status === 403) {
+      const [resUsers, resDepts] = await Promise.all([
+        fetch('/api/admin/users'),
+        fetch('/api/admin/departments').catch(() => null),
+      ]);
+
+      if (resUsers.status === 403) {
         window.location.href = '/hrd/dashboard';
         return;
       }
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      const json = await resUsers.json();
+      if (!resUsers.ok || !json.success) {
         throw new Error(json.error || 'Gagal memuat data pengguna.');
       }
       setUsers(json.data || []);
       setBatches(json.batches || []);
       if (json.currentUserId) setCurrentUserId(json.currentUserId);
+
+      if (resDepts && resDepts.ok) {
+        const deptJson = await resDepts.json();
+        if (deptJson.success && Array.isArray(deptJson.data) && deptJson.data.length > 0) {
+          setDepartments(deptJson.data.map((d: any) => d.name));
+        }
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -343,7 +355,7 @@ export default function UsersManagementPage() {
             className="input-field text-sm !w-auto !bg-slate-900 !text-slate-100"
           >
             <option value="ALL" className="bg-slate-900 text-slate-100">Semua Bagian</option>
-            {DEPARTMENTS.map((d) => (
+            {departments.map((d) => (
               <option key={d} value={d} className="bg-slate-900 text-slate-100">
                 {d}
               </option>
@@ -545,7 +557,7 @@ export default function UsersManagementPage() {
                     onChange={(e) => setEditingUser({ ...editingUser, department: e.target.value })}
                     className="input-field text-xs"
                   >
-                    {DEPARTMENTS.map((d) => (
+                    {departments.map((d) => (
                       <option key={d} value={d}>
                         {d}
                       </option>

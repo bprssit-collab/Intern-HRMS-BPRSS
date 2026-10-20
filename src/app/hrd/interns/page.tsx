@@ -31,7 +31,7 @@ interface InternItem {
   created_at: string;
 }
 
-const DEPARTMENTS = [
+const DEFAULT_DEPARTMENTS = [
   'CS',
   'Teller UNPAM',
   'SDM',
@@ -42,11 +42,13 @@ const DEPARTMENTS = [
   'Social Media',
   'Operasional',
   'IT',
+  'Umum',
 ];
 
 export default function InternsPage() {
   const [interns, setInterns] = useState<InternItem[]>([]);
   const [batches, setBatches] = useState<{ id: string; name: string }[]>([]);
+  const [departments, setDepartments] = useState<string[]>(DEFAULT_DEPARTMENTS);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,6 +102,15 @@ export default function InternsPage() {
       .then((res) => res.json())
       .then((json) => {
         if (json.success) setCurrentUser(json.data);
+      })
+      .catch(() => {});
+
+    fetch('/api/admin/departments')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setDepartments(json.data.map((d: any) => d.name));
+        }
       })
       .catch(() => {});
   }, []);
@@ -294,7 +305,7 @@ export default function InternsPage() {
             className="input-field text-sm !w-auto !bg-slate-900 !text-slate-100"
           >
             <option value="ALL" className="bg-slate-900 text-slate-100">Semua Bagian</option>
-            {DEPARTMENTS.map((d) => (
+            {departments.map((d) => (
               <option key={d} value={d} className="bg-slate-900 text-slate-100">
                 {d}
               </option>
@@ -481,7 +492,7 @@ export default function InternsPage() {
                     onChange={(e) => setEditingIntern({ ...editingIntern, department: e.target.value })}
                     className="input-field text-sm"
                   >
-                    {DEPARTMENTS.map((dept) => (
+                    {departments.map((dept) => (
                       <option key={dept} value={dept}>
                         {dept}
                       </option>

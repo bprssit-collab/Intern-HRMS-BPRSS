@@ -37,6 +37,15 @@ export interface Batch {
   created_at: string;
 }
 
+export interface Department {
+  id: string;
+  name: string;
+  code?: string | null;
+  description?: string | null;
+  user_count?: number;
+  created_at?: string;
+}
+
 export interface Settings {
   id: string;
   office_lat: number;
