@@ -53,7 +53,7 @@ const DEFAULT_DEPARTMENTS = [
   'Umum / HRD',
 ];
 
-const ROLES_META: Record<UserRole, { label: string; badge: string; color: string }> = {
+const DEFAULT_ROLES_META: Record<string, { label: string; badge: string; color: string }> = {
   super_admin: { label: 'Super Admin', badge: 'SUPER ADMIN', color: 'bg-purple-500/20 text-purple-300 border-purple-500/40' },
   kepala_hrd: { label: 'Kepala HRD', badge: 'KEPALA HRD', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' },
   staf_hrd: { label: 'Staf HRD', badge: 'STAF HRD', color: 'bg-teal-500/20 text-teal-300 border-teal-500/40' },
@@ -65,6 +65,7 @@ export default function UsersManagementPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [batches, setBatches] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
   const [departments, setDepartments] = useState<string[]>(DEFAULT_DEPARTMENTS);
+  const [rolesMeta, setRolesMeta] = useState<Record<string, { label: string; badge: string; color: string }>>(DEFAULT_ROLES_META);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,9 +93,10 @@ export default function UsersManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [resUsers, resDepts] = await Promise.all([
+      const [resUsers, resDepts, resRoles] = await Promise.all([
         fetch('/api/admin/users'),
         fetch('/api/admin/departments').catch(() => null),
+        fetch('/api/admin/roles').catch(() => null),
       ]);
 
       if (resUsers.status === 403) {
@@ -113,6 +115,17 @@ export default function UsersManagementPage() {
         const deptJson = await resDepts.json();
         if (deptJson.success && Array.isArray(deptJson.data) && deptJson.data.length > 0) {
           setDepartments(deptJson.data.map((d: any) => d.name));
+        }
+      }
+
+      if (resRoles && resRoles.ok) {
+        const roleJson = await resRoles.json();
+        if (roleJson.success && Array.isArray(roleJson.data) && roleJson.data.length > 0) {
+          const newMeta: Record<string, any> = { ...DEFAULT_ROLES_META };
+          roleJson.data.forEach((r: any) => {
+            newMeta[r.key] = { label: r.label, badge: r.badge, color: r.color };
+          });
+          setRolesMeta(newMeta);
         }
       }
     } catch (err: any) {
@@ -301,9 +314,9 @@ export default function UsersManagementPage() {
 
       {/* Role Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        {(Object.keys(ROLES_META) as UserRole[]).map((r) => {
+        {Object.keys(rolesMeta).map((r) => {
           const count = users.filter((u) => u.role === r).length;
-          const meta = ROLES_META[r];
+          const meta = rolesMeta[r] || { label: r, badge: r, color: '' };
           return (
             <div
               key={r}
@@ -342,9 +355,9 @@ export default function UsersManagementPage() {
             className="input-field text-sm !w-auto !bg-slate-900 !text-slate-100"
           >
             <option value="ALL" className="bg-slate-900 text-slate-100">Semua Role</option>
-            {(Object.keys(ROLES_META) as UserRole[]).map((r) => (
+            {Object.keys(rolesMeta).map((r) => (
               <option key={r} value={r} className="bg-slate-900 text-slate-100">
-                {ROLES_META[r].label}
+                {rolesMeta[r]?.label || r}
               </option>
             ))}
           </select>
@@ -391,7 +404,7 @@ export default function UsersManagementPage() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {filteredUsers.map((u) => {
-                  const meta = ROLES_META[u.role] || { label: u.role, badge: u.role, color: 'bg-slate-500/20 text-slate-300' };
+                  const meta = rolesMeta[u.role] || { label: u.role, badge: u.role, color: 'bg-slate-500/20 text-slate-300 border-slate-500/40' };
                   const isSelf = u.id === currentUserId;
 
                   return (
@@ -539,9 +552,9 @@ export default function UsersManagementPage() {
                     onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as UserRole })}
                     className="input-field text-xs"
                   >
-                    {(Object.keys(ROLES_META) as UserRole[]).map((r) => (
+                    {Object.keys(rolesMeta).map((r) => (
                       <option key={r} value={r}>
-                        {ROLES_META[r].label}
+                        {rolesMeta[r]?.label || r}
                       </option>
                     ))}
                   </select>

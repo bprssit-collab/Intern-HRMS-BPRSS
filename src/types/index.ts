@@ -46,6 +46,34 @@ export interface Department {
   created_at?: string;
 }
 
+export interface RolePermissions {
+  manage_users?: boolean;
+  manage_departments?: boolean;
+  manage_roles?: boolean;
+  manage_batches?: boolean;
+  view_attendance_history?: boolean;
+  edit_attendance?: 'unlimited' | 'once' | 'notes_only' | 'none';
+  reset_face?: boolean;
+  payout_access?: boolean;
+  payout_approval?: boolean;
+  must_attend?: boolean;
+  [key: string]: any;
+}
+
+export interface RoleItem {
+  id: string;
+  key: string;
+  label: string;
+  badge: string;
+  color: string;
+  description: string;
+  portal_access: 'hrd' | 'intern' | 'both';
+  is_system: boolean;
+  permissions: RolePermissions;
+  user_count?: number;
+  created_at?: string;
+}
+
 export interface Settings {
   id: string;
   office_lat: number;
