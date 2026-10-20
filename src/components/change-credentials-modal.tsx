@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { KeyRound, Lock, User as UserIcon, CheckCircle, AlertCircle, Eye, EyeOff, Sparkles, Loader2 } from 'lucide-react';
+import { KeyRound, Lock, User as UserIcon, CheckCircle, AlertCircle, Eye, EyeOff, Sparkles, Loader2, Info } from 'lucide-react';
 
 interface ChangeCredentialsModalProps {
   initialMustChange?: boolean;
@@ -35,7 +35,6 @@ export function ChangeCredentialsModal({ initialMustChange, currentUser }: Chang
         if (json.success && json.data) {
           if (json.data.must_change_credentials) {
             setUserInfo(json.data);
-            setNewUsername(json.data.username || '');
             setIsOpen(true);
           }
         }
@@ -47,7 +46,6 @@ export function ChangeCredentialsModal({ initialMustChange, currentUser }: Chang
     if (initialMustChange !== undefined) {
       if (initialMustChange && currentUser) {
         setUserInfo(currentUser);
-        setNewUsername(currentUser.username || '');
         setIsOpen(true);
       }
     } else {
@@ -63,6 +61,7 @@ export function ChangeCredentialsModal({ initialMustChange, currentUser }: Chang
 
     const cleanUsername = newUsername.trim().toLowerCase();
 
+    // 1. Format validation
     if (cleanUsername.length < 3 || cleanUsername.length > 30) {
       setError('Username harus terdiri dari 3 sampai 30 karakter.');
       return;
@@ -73,11 +72,32 @@ export function ChangeCredentialsModal({ initialMustChange, currentUser }: Chang
       return;
     }
 
+    // 2. Cannot keep the default/current username
+    const currentUsername = (userInfo?.username || '').trim().toLowerCase();
+    if (currentUsername && cleanUsername === currentUsername) {
+      setError(`Username baru tidak boleh sama dengan username bawaan (${userInfo?.username}). Silakan tentukan username baru Anda.`);
+      return;
+    }
+
+    // 3. Password length
     if (newPassword.length < 6) {
       setError('Password baru minimal 6 karakter.');
       return;
     }
 
+    // 4. Cannot use default password
+    if (newPassword.toLowerCase() === 'magang2026') {
+      setError('Password baru tidak boleh menggunakan password default (magang2026). Silakan buat password baru yang aman.');
+      return;
+    }
+
+    // 5. Username and password cannot be identical
+    if (cleanUsername === newPassword.toLowerCase()) {
+      setError('Username dan password baru tidak boleh bernilai sama demi keamanan akun Anda.');
+      return;
+    }
+
+    // 6. Confirm password must match
     if (newPassword !== confirmPassword) {
       setError('Konfirmasi password tidak cocok dengan password baru.');
       return;
@@ -152,9 +172,18 @@ export function ChangeCredentialsModal({ initialMustChange, currentUser }: Chang
             <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 mb-4 flex items-start gap-2">
               <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-blue-400" />
               <span>
-                Akun Anda dibuat dengan username & password default. Untuk keamanan, Anda <strong>wajib mengganti Username dan Password baru</strong> sebelum dapat melanjutkan.
+                Akun Anda saat ini menggunakan kredensial bawaan. Untuk keamanan, Anda <strong>wajib mengganti Username dan Password baru yang berbeda</strong> sebelum dapat melanjutkan.
               </span>
             </div>
+
+            {userInfo?.username && (
+              <div className="mb-4 p-2.5 rounded-lg bg-slate-900/80 border border-white/10 flex items-center justify-between text-xs">
+                <span className="text-slate-400">Username bawaan saat ini:</span>
+                <span className="font-mono text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+                  {userInfo.username}
+                </span>
+              </div>
+            )}
 
             {error && (
               <div className="alert alert-error mb-4 text-xs py-2.5">
@@ -179,7 +208,7 @@ export function ChangeCredentialsModal({ initialMustChange, currentUser }: Chang
                     autoCorrect="off"
                     value={newUsername}
                     onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
-                    placeholder="Contoh: budi.santoso"
+                    placeholder={`Contoh: ${userInfo?.username ? userInfo.username + '1' : 'budi.santoso'}`}
                     className="input-field text-sm !pl-9"
                     style={{ paddingLeft: '2.25rem' }}
                   />
@@ -190,7 +219,7 @@ export function ChangeCredentialsModal({ initialMustChange, currentUser }: Chang
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-300 ml-0.5 flex items-center justify-between">
                   <span>Password Baru</span>
-                  <span className="text-[10px] text-slate-500 font-normal">Minimal 6 karakter</span>
+                  <span className="text-[10px] text-slate-500 font-normal">Minimal 6 karakter, beda dari username</span>
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />

@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const session = await getSession();
     if (!session) {
       return NextResponse.json(
-        { success: false, error: 'Sesi login tidak valid. Silakan login kembali.' },
+        { success: false, error: 'Sesi login tidak valid atau telah berakhir. Silakan login kembali.' },
         { status: 401 }
       );
     }
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     const cleanUsername = String(new_username).trim().toLowerCase();
 
-    // Validate username format: 3-30 chars, alphanumeric, dots, underscores
+    // 1. Validate username format: 3-30 chars, alphanumeric, dots, underscores
     if (cleanUsername.length < 3 || cleanUsername.length > 30) {
       return NextResponse.json(
         { success: false, error: 'Username harus memiliki panjang antara 3 sampai 30 karakter.' },
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 2. Validate password length
     if (new_password.length < 6) {
       return NextResponse.json(
         { success: false, error: 'Password baru minimal harus 6 karakter.' },
@@ -51,9 +52,71 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 3. Username and password must NOT be identical
+    if (cleanUsername === new_password.toLowerCase()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Username dan password tidak boleh sama demi alasan keamanan akun.',
+        },
+        { status: 400 }
+      );
+    }
+
+    // 4. New password cannot be the default password
+    if (new_password.toLowerCase() === 'magang2026') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Password baru tidak boleh menggunakan password default (magang2026). Silakan buat password baru yang aman.',
+        },
+        { status: 400 }
+      );
+    }
+
     const supabase = createAdminClient();
 
-    // Check if new_username is already taken by ANY OTHER user
+    // Fetch current user details from DB to compare against existing credentials
+    const { data: currentUser, error: fetchError } = await supabase
+      .from('users')
+      .select('id, username, password_hash, must_change_credentials')
+      .eq('id', session.id)
+      .single();
+
+    if (fetchError || !currentUser) {
+      return NextResponse.json(
+        { success: false, error: 'Data akun tidak ditemukan di sistem.' },
+        { status: 404 }
+      );
+    }
+
+    // 5. Username must be changed (cannot remain the current/default username)
+    const currentUsername = (currentUser.username || session.username || '').toLowerCase();
+    if (cleanUsername === currentUsername) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Username baru tidak boleh sama dengan username saat ini/default. Silakan buat username baru Anda.',
+        },
+        { status: 400 }
+      );
+    }
+
+    // 6. Password cannot match current password hash
+    if (currentUser.password_hash) {
+      const isSamePassword = await bcrypt.compare(new_password, currentUser.password_hash);
+      if (isSamePassword) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Password baru tidak boleh sama dengan password default/lama Anda.',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 7. Check if new_username is already taken by ANY OTHER user
     const { data: existingUser, error: checkError } = await supabase
       .from('users')
       .select('id, username')
@@ -64,7 +127,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Username sudah terpakai, silakan gunakan username lain.',
+          error: 'Username sudah terpakai oleh pengguna lain, silakan gunakan username yang berbeda.',
         },
         { status: 409 }
       );
@@ -91,7 +154,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Username sudah terpakai, silakan gunakan username lain.',
+            error: 'Username sudah terpakai, silakan gunakan username yang berbeda.',
           },
           { status: 409 }
         );
