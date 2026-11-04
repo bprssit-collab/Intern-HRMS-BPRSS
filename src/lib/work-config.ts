@@ -255,6 +255,71 @@ export async function upsertHolidayItem(
   return savedItem;
 }
 
+export async function bulkUpsertHolidays(
+  items: { date: string; name: string; type: HolidayType; created_by?: string }[],
+  supabase = createAdminClient()
+): Promise<{ count: number; saved: Holiday[] }> {
+  if (!items || items.length === 0) {
+    return { count: 0, saved: [] };
+  }
+
+  // 1. Try native table batch upsert
+  const { data, error } = await supabase
+    .from('holidays')
+    .upsert(
+      items.map((it) => ({
+        date: it.date,
+        name: it.name,
+        type: it.type,
+        created_by: it.created_by || null,
+      })),
+      { onConflict: 'date' }
+    )
+    .select();
+
+  if (!error && Array.isArray(data)) {
+    return { count: data.length, saved: data as Holiday[] };
+  }
+
+  // 2. Fallback JSONB persistence
+  const fallback = await getFallbackAppConfig(supabase);
+  const currentList: Holiday[] = Array.isArray(fallback.holidays)
+    ? [...fallback.holidays]
+    : getDefaultHolidaysList();
+
+  const savedResults: Holiday[] = [];
+
+  for (const item of items) {
+    const existingIdx = currentList.findIndex((h) => h.date === item.date);
+    const savedItem: Holiday = {
+      id:
+        existingIdx >= 0
+          ? currentList[existingIdx].id
+          : `fb-${item.date}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      date: item.date,
+      name: item.name,
+      type: item.type,
+      created_by: item.created_by || null,
+      created_at:
+        existingIdx >= 0
+          ? currentList[existingIdx].created_at
+          : new Date().toISOString(),
+    };
+
+    if (existingIdx >= 0) {
+      currentList[existingIdx] = savedItem;
+    } else {
+      currentList.push(savedItem);
+    }
+    savedResults.push(savedItem);
+  }
+
+  currentList.sort((a, b) => a.date.localeCompare(b.date));
+  await saveFallbackAppConfig((prev) => ({ ...prev, holidays: currentList }), supabase);
+
+  return { count: savedResults.length, saved: savedResults };
+}
+
 export async function deleteHolidayItem(
   idOrDate: string,
   supabase = createAdminClient()

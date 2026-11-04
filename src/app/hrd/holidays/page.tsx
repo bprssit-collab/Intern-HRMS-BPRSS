@@ -13,6 +13,10 @@ import {
   AlertCircle,
   Loader2,
   X,
+  FileSpreadsheet,
+  ListPlus,
+  HelpCircle,
+  Check,
 } from 'lucide-react';
 import { formatDateID, dayOfWeekISO } from '@/lib/utils';
 import type { Holiday, HolidayType, Batch } from '@/types';
@@ -73,6 +77,20 @@ export default function HolidaysPage() {
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Bulk Modal state
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkMode, setBulkMode] = useState<'text' | 'table'>('text');
+  const [bulkText, setBulkText] = useState('');
+  const [bulkRows, setBulkRows] = useState<
+    { date: string; name: string; type: HolidayType }[]
+  >([
+    { date: '', name: '', type: 'national' },
+    { date: '', name: '', type: 'national' },
+    { date: '', name: '', type: 'cuti_bersama' },
+  ]);
+  const [isSubmittingBulk, setIsSubmittingBulk] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
   const fetchHolidays = async (batchId?: string) => {
     setIsLoading(true);
     try {
@@ -112,6 +130,110 @@ export default function HolidaysPage() {
 
     fetchHolidays();
   }, []);
+
+  const parseBulkText = (text: string) => {
+    const lines = text.split('\n');
+    const items: { date: string; name: string; type: HolidayType; lineNum: number; isValid: boolean; error?: string }[] = [];
+
+    lines.forEach((line, idx) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+
+      // Support comma, semicolon, or tab separation
+      let parts: string[] = [];
+      if (trimmed.includes('\t')) {
+        parts = trimmed.split('\t');
+      } else if (trimmed.includes(';')) {
+        parts = trimmed.split(';');
+      } else {
+        parts = trimmed.split(',');
+      }
+
+      const datePart = (parts[0] || '').trim();
+      const namePart = (parts[1] || '').trim();
+      const typePart = (parts[2] || '').trim().toLowerCase();
+
+      let type: HolidayType = 'national';
+      if (typePart.includes('cuti') || typePart.includes('bersama')) {
+        type = 'cuti_bersama';
+      } else if (typePart.includes('company') || typePart.includes('perusahaan') || typePart.includes('internal')) {
+        type = 'company';
+      }
+
+      const isDateValid = /^\d{4}-\d{2}-\d{2}$/.test(datePart);
+      const isNameValid = namePart.length >= 2;
+
+      let errorMsg = '';
+      if (!isDateValid) errorMsg = 'Format tanggal harus YYYY-MM-DD';
+      else if (!isNameValid) errorMsg = 'Nama hari libur belum diisi';
+
+      items.push({
+        date: datePart,
+        name: namePart,
+        type,
+        lineNum: idx + 1,
+        isValid: isDateValid && isNameValid,
+        error: errorMsg,
+      });
+    });
+
+    return items;
+  };
+
+  const parsedBulkPreview = parseBulkText(bulkText);
+  const validBulkItems = parsedBulkPreview.filter((i) => i.isValid);
+
+  const handleSaveBulk = async () => {
+    setBulkError(null);
+    let itemsToSave: { date: string; name: string; type: HolidayType }[] = [];
+
+    if (bulkMode === 'text') {
+      if (validBulkItems.length === 0) {
+        setBulkError('Tidak ada baris data hari libur yang valid untuk disimpan.');
+        return;
+      }
+      itemsToSave = validBulkItems.map((i) => ({ date: i.date, name: i.name, type: i.type }));
+    } else {
+      const validRows = bulkRows.filter(
+        (r) => /^\d{4}-\d{2}-\d{2}$/.test(r.date.trim()) && r.name.trim().length >= 2
+      );
+      if (validRows.length === 0) {
+        setBulkError('Isi minimal satu baris tanggal dan nama hari libur yang lengkap.');
+        return;
+      }
+      itemsToSave = validRows.map((r) => ({
+        date: r.date.trim(),
+        name: r.name.trim(),
+        type: r.type,
+      }));
+    }
+
+    setIsSubmittingBulk(true);
+    try {
+      const res = await fetch('/api/hrd/holidays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: itemsToSave }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Gagal menyimpan data massal.');
+      }
+
+      setIsBulkModalOpen(false);
+      setBulkText('');
+      setFeedback({
+        type: 'success',
+        text: json.message || `Berhasil menambahkan ${itemsToSave.length} hari libur secara massal.`,
+      });
+      await fetchHolidays(selectedBatchId);
+    } catch (err: any) {
+      setBulkError(err.message);
+    } finally {
+      setIsSubmittingBulk(false);
+    }
+  };
 
   const openCreateModal = () => {
     setEditingHoliday({
@@ -218,13 +340,26 @@ export default function HolidaysPage() {
             <strong>Hari Kerja Efektif</strong> pada periode batch magang.
           </p>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="btn-primary self-start sm:self-auto flex items-center gap-2 text-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Hari Libur
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => {
+              setBulkError(null);
+              setIsBulkModalOpen(true);
+            }}
+            className="btn-secondary flex items-center gap-2 text-sm border-purple-500/30 text-purple-300 hover:bg-purple-500/10"
+            title="Tambah banyak hari libur sekaligus (salin teks/Excel)"
+          >
+            <ListPlus className="w-4 h-4 text-purple-400" />
+            + Tambah Massal (Bulk)
+          </button>
+          <button
+            onClick={openCreateModal}
+            className="btn-primary flex items-center gap-2 text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Hari Libur
+          </button>
+        </div>
       </div>
 
       {feedback && (
@@ -552,6 +687,280 @@ export default function HolidaysPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Tambah Massal (Bulk Import) */}
+      {isBulkModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-card max-w-2xl w-full p-6 animate-fade-in border-purple-500/40 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300">
+                  <ListPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">
+                    Tambah Jadwal Hari Libur Secara Massal
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Input banyak tanggal libur sekaligus tanpa perlu mengisi formulir satu per satu.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBulkModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {bulkError && (
+              <div className="alert alert-error text-xs mb-4 shrink-0">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{bulkError}</span>
+              </div>
+            )}
+
+            {/* Mode Tabs */}
+            <div className="flex gap-2 p-1 bg-slate-900/80 rounded-lg border border-white/10 mb-4 shrink-0">
+              <button
+                type="button"
+                onClick={() => setBulkMode('text')}
+                className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
+                  bulkMode === 'text'
+                    ? 'bg-purple-600 text-white shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Metode 1: Salin/Tempel Teks (Excel / Format Baris)
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkMode('table')}
+                className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
+                  bulkMode === 'table'
+                    ? 'bg-purple-600 text-white shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Metode 2: Input Baris Cepat
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 pr-1 space-y-4">
+              {bulkMode === 'text' ? (
+                <>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300 flex items-center justify-between mb-1.5">
+                      <span>Tempelkan Baris Data Libur:</span>
+                      <span className="text-[11px] text-purple-300 font-normal">
+                        Format: <code className="bg-white/10 px-1 py-0.5 rounded">YYYY-MM-DD, Nama Libur, Kategori</code>
+                      </span>
+                    </label>
+                    <textarea
+                      rows={6}
+                      value={bulkText}
+                      onChange={(e) => setBulkText(e.target.value)}
+                      placeholder={`Contoh salinan Excel / teks:
+2027-01-01, Tahun Baru 2027 Masehi, national
+2027-02-05, Cuti Bersama Imlek, cuti_bersama
+2027-02-06, Tahun Baru Imlek 2578, national
+2027-03-24, Hari Suci Nyepi, national`}
+                      className="input-field text-xs font-mono w-full resize-none leading-relaxed"
+                    />
+                    <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-400">
+                      <HelpCircle className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                      <span>
+                        Pemisah kolom dapat berupa koma (,), titik koma (;), atau tab (salin langsung dari kolom Excel). Kategori: <strong>national</strong> (default), <strong>cuti_bersama</strong>, atau <strong>company</strong>.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Live Preview parsed items */}
+                  {parsedBulkPreview.length > 0 && (
+                    <div className="space-y-2 border-t border-white/10 pt-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-white">Pratinjau Hasil Pembacaan:</span>
+                        <span className="text-emerald-400 font-medium">
+                          {validBulkItems.length} baris valid siap disimpan
+                        </span>
+                      </div>
+
+                      <div className="max-h-48 overflow-y-auto rounded-lg border border-white/10 divide-y divide-white/5 bg-slate-900/50 text-xs">
+                        {parsedBulkPreview.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`p-2 flex items-center justify-between gap-3 ${
+                              item.isValid ? 'text-slate-200' : 'bg-rose-500/10 text-rose-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-mono text-[10px] text-slate-500 w-5">
+                                #{item.lineNum}
+                              </span>
+                              <span className="font-mono font-semibold text-white whitespace-nowrap">
+                                {item.date || '(kosong)'}
+                              </span>
+                              <span className="truncate">&bull; {item.name || '(kosong)'}</span>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              {item.isValid ? (
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] border ${
+                                    HOLIDAY_TYPE_LABELS[item.type]?.color ||
+                                    HOLIDAY_TYPE_LABELS.national.color
+                                  }`}
+                                >
+                                  {HOLIDAY_TYPE_LABELS[item.type]?.label || item.type}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-rose-400 font-medium">
+                                  {item.error}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Mode 2: Multi-row Table */
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    {bulkRows.map((row, index) => (
+                      <div
+                        key={index}
+                        className="flex flex-col sm:flex-row items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/5"
+                      >
+                        <input
+                          type="date"
+                          value={row.date}
+                          onChange={(e) => {
+                            const newRows = [...bulkRows];
+                            newRows[index].date = e.target.value;
+                            setBulkRows(newRows);
+                          }}
+                          className="input-field text-xs sm:w-36 font-mono"
+                          required
+                        />
+                        <input
+                          type="text"
+                          value={row.name}
+                          onChange={(e) => {
+                            const newRows = [...bulkRows];
+                            newRows[index].name = e.target.value;
+                            setBulkRows(newRows);
+                          }}
+                          placeholder="Nama Hari Libur / Keterangan"
+                          className="input-field text-xs flex-1"
+                          required
+                        />
+                        <select
+                          value={row.type}
+                          onChange={(e) => {
+                            const newRows = [...bulkRows];
+                            newRows[index].type = e.target.value as HolidayType;
+                            setBulkRows(newRows);
+                          }}
+                          className="input-field text-xs sm:w-36 !bg-slate-900 !text-slate-100"
+                        >
+                          <option value="national">Libur Nasional</option>
+                          <option value="cuti_bersama">Cuti Bersama</option>
+                          <option value="company">Libur Perusahaan</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (bulkRows.length > 1) {
+                              setBulkRows(bulkRows.filter((_, i) => i !== index));
+                            }
+                          }}
+                          disabled={bulkRows.length <= 1}
+                          className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded disabled:opacity-30 transition-colors"
+                          title="Hapus baris"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setBulkRows([
+                          ...bulkRows,
+                          { date: '', name: '', type: 'national' },
+                        ])
+                      }
+                      className="btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      + Tambah 1 Baris
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setBulkRows([
+                          ...bulkRows,
+                          { date: '', name: '', type: 'national' },
+                          { date: '', name: '', type: 'national' },
+                          { date: '', name: '', type: 'national' },
+                        ])
+                      }
+                      className="btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      + Tambah 3 Baris
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-between items-center pt-4 mt-4 border-t border-white/10 shrink-0">
+              <div className="text-xs text-slate-400">
+                {bulkMode === 'text'
+                  ? `${validBulkItems.length} baris siap disimpan`
+                  : `${
+                      bulkRows.filter((r) => r.date && r.name).length
+                    } baris terisi`}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkModalOpen(false)}
+                  className="btn-secondary text-xs"
+                  disabled={isSubmittingBulk}
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveBulk}
+                  disabled={
+                    isSubmittingBulk ||
+                    (bulkMode === 'text' && validBulkItems.length === 0)
+                  }
+                  className="btn-primary text-xs flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSubmittingBulk ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5" />
+                  )}
+                  Simpan Semua Hari Libur
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

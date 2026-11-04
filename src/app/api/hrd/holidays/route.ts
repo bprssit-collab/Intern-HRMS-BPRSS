@@ -11,6 +11,7 @@ import { HRD_PORTAL_ROLES, MANAGER_ROLES } from '@/lib/permissions';
 import {
   getHolidaysList,
   upsertHolidayItem,
+  bulkUpsertHolidays,
   deleteHolidayItem,
 } from '@/lib/work-config';
 import { addDaysISO, dayOfWeekISO } from '@/lib/utils';
@@ -145,6 +146,44 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+
+    // Support bulk insertion if body has `items` array
+    if (Array.isArray(body.items)) {
+      const rawItems = body.items;
+      const validItems: { date: string; name: string; type: HolidayType; created_by?: string }[] = [];
+
+      for (const item of rawItems) {
+        const d = String(item.date || '').trim();
+        const n = String(item.name || '').trim();
+        const t = (item.type || 'national') as HolidayType;
+
+        if (ISO_DATE.test(d) && n && VALID_TYPES.includes(t)) {
+          validItems.push({
+            date: d,
+            name: n,
+            type: t,
+            created_by: session.id,
+          });
+        }
+      }
+
+      if (validItems.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Tidak ada data hari libur yang valid untuk disimpan.' },
+          { status: 400 }
+        );
+      }
+
+      const result = await bulkUpsertHolidays(validItems);
+
+      return NextResponse.json({
+        success: true,
+        count: result.count,
+        data: result.saved,
+        message: `Berhasil menambahkan/memperbarui ${result.count} hari libur secara massal.`,
+      });
+    }
+
     const date = String(body.date || '').trim();
     const name = String(body.name || '').trim();
     const type = (body.type || 'national') as HolidayType;

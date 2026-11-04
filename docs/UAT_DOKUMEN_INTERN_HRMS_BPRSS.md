@@ -170,6 +170,7 @@ Sistem dinyatakan lulus UAT jika:
 | **TC-REKAP-04** | Tombol Reset Absensi Hari Ini (Fitur Uji/Admin) | 1. Pada menu absensi/pengaturan, gunakan fitur reset absensi hari ini untuk anak magang uji coba. | Catatan absensi hari ini ter-reset kembali kosong, sehingga penguji dapat melakukan simulasi check-in ulang tanpa menunggu esok hari. | High | [ ] PASS<br>[ ] FAIL |
 | **TC-REKAP-05** | Rekap Penilaian Magang (Total Hari & Total Jam Hadir) | 1. Login sebagai `staf_hrd`, `kepala_hrd`, atau `super_admin`.<br>2. Buka menu "Rekap Penilaian" (`/hrd/internship-summary`).<br>3. Pilih Batch Magang. | Menampilkan **Hari Kerja Efektif** batch (di luar Sabtu-Minggu & Libur Nasional), **Total Hari Hadir** ($H + 0.5 \times \text{Half}$), **Total Jam Hadir** (akumulasi selisih jam pulang - jam masuk), dan **% Kehadiran** setiap anak magang, serta dapat diekspor ke CSV/PDF. | Critical | [ ] PASS<br>[ ] FAIL |
 | **TC-REKAP-06** | Manajemen Hari Libur Nasional & Cuti Bersama | 1. Login sebagai `super_admin`, `kepala_hrd`, atau `staf_hrd`.<br>2. Buka menu "Hari Libur Nasional" (`/hrd/holidays`).<br>3. Tambah/ubah hari libur nasional atau cuti bersama pada periode batch. | Hari libur tersimpan, otomatis mengurangi jumlah **Hari Kerja Efektif** pada periode batch (jika jatuh di Senin–Jumat), dan menandai kolom tanggal terkait pada Rekap Absensi Matrix. | High | [ ] PASS<br>[ ] FAIL |
+| **TC-REKAP-07** | Tambah Hari Libur Massal (*Bulk Import*) | 1. Di menu Hari Libur Nasional, klik tombol "+ Tambah Massal (Bulk)".<br>2. Uji metode 1: Tempel salinan teks/Excel (format: `YYYY-MM-DD, Nama Libur, Kategori`).<br>3. Uji metode 2: Input multi-baris pada tabel baris cepat.<br>4. Periksa pratinjau validasi lalu klik "Simpan Semua Hari Libur". | Seluruh baris tanggal libur yang valid tersimpan sekaligus ke database dan tabel langsung diperbarui secara otomatis. | High | [ ] PASS<br>[ ] FAIL |
 
 ---
 
@@ -223,7 +224,7 @@ Gunakan tabel ini untuk mencatat setiap kendala, kegagalan uji (*FAIL*), atau te
 ## 7. KRITERIA KEPUTUSAN & PERSETUJUAN AKHIR (*UAT SIGN-OFF*)
 
 ### 7.1 Hasil Rekapitulasi Pengujian
-* Total Kasus Uji : **32 Kasus Uji**
+* Total Kasus Uji : **33 Kasus Uji**
 * Jumlah Kasus Uji Lolos (*PASS*) : _____
 * Jumlah Kasus Uji Gagal (*FAIL*) : _____
 * Persentase Kelulusan : _____%
