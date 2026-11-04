@@ -837,44 +837,50 @@ export default function HolidaysPage() {
                     {bulkRows.map((row, index) => (
                       <div
                         key={index}
-                        className="flex flex-col sm:flex-row items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/5"
+                        className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 rounded-lg bg-white/5 border border-white/10"
                       >
-                        <input
-                          type="date"
-                          value={row.date}
-                          onChange={(e) => {
-                            const newRows = [...bulkRows];
-                            newRows[index].date = e.target.value;
-                            setBulkRows(newRows);
-                          }}
-                          className="input-field text-xs sm:w-36 font-mono"
-                          required
-                        />
-                        <input
-                          type="text"
-                          value={row.name}
-                          onChange={(e) => {
-                            const newRows = [...bulkRows];
-                            newRows[index].name = e.target.value;
-                            setBulkRows(newRows);
-                          }}
-                          placeholder="Nama Hari Libur / Keterangan"
-                          className="input-field text-xs flex-1"
-                          required
-                        />
-                        <select
-                          value={row.type}
-                          onChange={(e) => {
-                            const newRows = [...bulkRows];
-                            newRows[index].type = e.target.value as HolidayType;
-                            setBulkRows(newRows);
-                          }}
-                          className="input-field text-xs sm:w-36 !bg-slate-900 !text-slate-100"
-                        >
-                          <option value="national">Libur Nasional</option>
-                          <option value="cuti_bersama">Cuti Bersama</option>
-                          <option value="company">Libur Perusahaan</option>
-                        </select>
+                        <div className="w-full sm:w-44 shrink-0">
+                          <input
+                            type="date"
+                            value={row.date}
+                            onChange={(e) => {
+                              const newRows = [...bulkRows];
+                              newRows[index].date = e.target.value;
+                              setBulkRows(newRows);
+                            }}
+                            className="input-field text-xs font-mono !py-2 w-full"
+                            required
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0 w-full">
+                          <input
+                            type="text"
+                            value={row.name}
+                            onChange={(e) => {
+                              const newRows = [...bulkRows];
+                              newRows[index].name = e.target.value;
+                              setBulkRows(newRows);
+                            }}
+                            placeholder="Nama Hari Libur / Keterangan (contoh: Cuti Bersama Idul Fitri)"
+                            className="input-field text-xs !py-2 w-full"
+                            required
+                          />
+                        </div>
+                        <div className="w-full sm:w-40 shrink-0">
+                          <select
+                            value={row.type}
+                            onChange={(e) => {
+                              const newRows = [...bulkRows];
+                              newRows[index].type = e.target.value as HolidayType;
+                              setBulkRows(newRows);
+                            }}
+                            className="input-field text-xs !py-2 w-full !bg-slate-900 !text-slate-100"
+                          >
+                            <option value="national">Libur Nasional</option>
+                            <option value="cuti_bersama">Cuti Bersama</option>
+                            <option value="company">Libur Perusahaan</option>
+                          </select>
+                        </div>
                         <button
                           type="button"
                           onClick={() => {
@@ -883,7 +889,7 @@ export default function HolidaysPage() {
                             }
                           }}
                           disabled={bulkRows.length <= 1}
-                          className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded disabled:opacity-30 transition-colors"
+                          className="p-2 self-end sm:self-center text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded disabled:opacity-30 transition-colors shrink-0"
                           title="Hapus baris"
                         >
                           <Trash2 className="w-4 h-4" />
