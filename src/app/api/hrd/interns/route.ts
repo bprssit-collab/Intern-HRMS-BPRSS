@@ -120,6 +120,8 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = await bcrypt.hash(password || DEFAULT_INTERN_PASSWORD, 10);
     const userEmail = email ? email.trim().toLowerCase() : `${cleanUsername}@intern.bprsehat.com`;
+    const assignedDept = department || 'CS';
+    const assignedRole = assignedDept.trim().toUpperCase() === 'SDM' ? 'intern_hrd' : 'intern';
 
     const { data: newIntern, error } = await supabase
       .from('users')
@@ -128,8 +130,8 @@ export async function POST(request: NextRequest) {
         username: cleanUsername,
         email: userEmail,
         password_hash: passwordHash,
-        role: 'intern',
-        department: department || 'CS',
+        role: assignedRole,
+        department: assignedDept,
         batch_id: batch_id || null,
         status: status || 'active',
         must_change_credentials: true,
@@ -205,7 +207,10 @@ export async function PUT(request: NextRequest) {
       payload.username = cleanUsername;
     }
     if (email) payload.email = email.trim().toLowerCase();
-    if (department !== undefined) payload.department = department;
+    if (department !== undefined) {
+      payload.department = department;
+      payload.role = String(department).trim().toUpperCase() === 'SDM' ? 'intern_hrd' : 'intern';
+    }
     if (batch_id !== undefined) payload.batch_id = batch_id;
     if (status !== undefined) payload.status = status;
 

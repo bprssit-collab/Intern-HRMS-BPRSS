@@ -14,6 +14,7 @@ import {
   HRD_PORTAL_ROLES,
   ATTENDEE_ROLES,
   getAttendanceEditPolicy,
+  isNotesRequiredForCode,
 } from '@/lib/permissions';
 import {
   addDaysISO,
@@ -332,10 +333,13 @@ export async function GET(request: NextRequest) {
 
 /**
  * An intern "attended" when they actually checked in, or when the record already carries a
- * present code (H / 1/2). Everything else (no record, or only S / I / A) counts as absent.
+ * present code (H / 1/2 / HL). Records explicitly set to S / I / A count as absent.
  */
 function isAttendedRecord(rec: any): boolean {
   if (!rec) return false;
+  if (rec.attendance_status === 'I' || rec.attendance_status === 'S' || rec.attendance_status === 'A') {
+    return false;
+  }
   return (
     !!rec.check_in_time ||
     rec.attendance_status === 'H' ||
@@ -422,9 +426,10 @@ export async function PUT(request: NextRequest) {
     }
 
     const trimmedNotes = typeof notes === 'string' ? notes.trim() : '';
-    if (policy.requireNotes && !trimmedNotes) {
+    const notesMandatory = policy.requireNotes || isNotesRequiredForCode(attendance_status);
+    if (notesMandatory && !trimmedNotes) {
       return NextResponse.json(
-        { success: false, error: 'Keterangan wajib diisi untuk status S / I / A.' },
+        { success: false, error: 'Keterangan wajib diisi untuk status Izin (I), Sakit (S), atau Alpa (A).' },
         { status: 400 }
       );
     }
@@ -441,28 +446,50 @@ export async function PUT(request: NextRequest) {
     };
 
     const isOvertimeCode = attendance_status === 'HL';
+    const isPresentCode = attendance_status === 'H' || attendance_status === '1/2' || attendance_status === 'HL';
+    const cleanNotes = trimmedNotes.replace(/\[LEMBUR-DISETUJUI\]\s*/g, '').trim();
     const noteWithOvertimeTag = isOvertimeCode
-      ? trimmedNotes.includes('[LEMBUR-DISETUJUI]')
-        ? trimmedNotes
-        : `[LEMBUR-DISETUJUI] ${trimmedNotes || 'Lembur Sabtu/Hari Libur'}`.trim()
-      : trimmedNotes;
+      ? `[LEMBUR-DISETUJUI] ${cleanNotes || 'Lembur Sabtu/Hari Libur'}`.trim()
+      : cleanNotes;
 
     let result;
     if (existing) {
       const update: Record<string, any> = {
         attendance_status,
         status,
-        ...(isOvertimeCode ? { is_overtime: true, overtime_approved: true } : {}),
+        ...(isOvertimeCode
+          ? { is_overtime: true, overtime_approved: true }
+          : existing.is_overtime !== undefined
+          ? { is_overtime: false, overtime_approved: false }
+          : {}),
         ...editMeta,
       };
-      if (notes !== undefined || isOvertimeCode) update.notes = noteWithOvertimeTag || null;
+      if (notes !== undefined || isOvertimeCode || existing.notes?.includes('[LEMBUR-DISETUJUI]')) {
+        update.notes = noteWithOvertimeTag || null;
+      }
 
-      // Present codes need complete times so the day is counted in the payout
-      if (attendance_status === 'H' || attendance_status === '1/2' || attendance_status === 'HL') {
+      if (isPresentCode) {
+        // Present codes need complete times so the day is counted in payout & summary
         if (!existing.check_in_time) update.check_in_time = wibTime(date, '08:30');
         if (!existing.check_out_time) {
           update.check_out_time = wibTime(date, attendance_status === '1/2' ? '12:30' : '16:00');
+        } else if (
+          attendance_status === '1/2' &&
+          existing.check_in_time === wibTime(date, '08:30') &&
+          existing.check_out_time === wibTime(date, '16:00')
+        ) {
+          update.check_out_time = wibTime(date, '12:30');
+        } else if (
+          (attendance_status === 'H' || attendance_status === 'HL') &&
+          existing.check_in_time === wibTime(date, '08:30') &&
+          existing.check_out_time === wibTime(date, '12:30')
+        ) {
+          update.check_out_time = wibTime(date, '16:00');
         }
+      } else {
+        // Absence codes (I, S, A): clear check-in/out times so payout & summary do not count them as present
+        update.check_in_time = null;
+        update.check_out_time = null;
       }
 
       result = await supabase
@@ -473,8 +500,11 @@ export async function PUT(request: NextRequest) {
         .single();
 
       // Fallback if migration_v6 columns/constraint ('HL', 'is_overtime') are not yet applied in Supabase
-      if (result.error && isOvertimeCode) {
-        const fallbackUpdate: Record<string, any> = { ...update, attendance_status: 'H' };
+      if (result.error) {
+        const fallbackUpdate: Record<string, any> = {
+          ...update,
+          attendance_status: isOvertimeCode ? 'H' : attendance_status,
+        };
         delete fallbackUpdate.is_overtime;
         delete fallbackUpdate.overtime_approved;
         result = await supabase

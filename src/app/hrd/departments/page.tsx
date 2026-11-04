@@ -61,7 +61,18 @@ export default function DepartmentsManagementPage() {
   };
 
   useEffect(() => {
-    fetchDepartments();
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((json) => {
+        if (!json.success || json.data?.role !== 'super_admin') {
+          window.location.href = '/hrd/dashboard';
+          return;
+        }
+        fetchDepartments();
+      })
+      .catch(() => {
+        window.location.href = '/hrd/dashboard';
+      });
   }, []);
 
   const openCreateModal = () => {

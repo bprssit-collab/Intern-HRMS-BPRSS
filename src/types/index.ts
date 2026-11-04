@@ -64,7 +64,7 @@ export interface RolePermissions {
   manage_roles?: boolean;
   manage_batches?: boolean;
   view_attendance_history?: boolean;
-  edit_attendance?: 'unlimited' | 'once' | 'notes_only' | 'none';
+  edit_attendance?: 'unlimited' | '5x' | '3x' | 'once' | 'notes_only' | 'none';
   reset_face?: boolean;
   payout_access?: boolean;
   payout_approval?: boolean;

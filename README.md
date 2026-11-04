@@ -121,18 +121,18 @@ Sistem membedakan wewenang ke dalam 5 tingkatan peran (*Role-Based Access Contro
 | **Dashboard Magang Pribadi** | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **Akses Portal HRD** | ❌ | ✅ | ✅ | ✅ | ✅ |
 | **Melihat Rekap Kehadiran Horizontal** | ❌ | ✅ | ✅ | ✅ | ✅ |
-| **Mengisi Status Izin/Sakit/Alpa (S/I/A)** | ❌ | ✅ *(1x saja)* | ✅ *(1x saja)* | ✅ *(1x saja)* | ✅ *(Bebas/unlimited)* |
-| **Mengubah Kode Hadir (H / 1/2 / HL)** | ❌ | ❌ *(Terkunci)* | ✅ *(1x saja)* | ✅ *(1x saja)* | ✅ *(Bebas/unlimited)* |
+| **Mengisi Status Izin/Sakit/Alpa (S/I/A)** | ❌ | ✅ *(Maks 1x pada sel kosong)* | ✅ *(Maks 3x edit)* | ✅ *(Maks 5x edit)* | ✅ *(Bebas/unlimited)* |
+| **Memilih & Mengubah Kode Hadir (H / 1/2 / HL)** | ❌ | ❌ *(Terkunci)* | ✅ *(Maks 3x edit)* | ✅ *(Maks 5x edit)* | ✅ *(Bebas/unlimited)* |
 | **Kelola Daftar Mahasiswa Magang** | ❌ | ❌ *(Disembunyikan)* | ✅ | ✅ | ✅ |
 | **Manajemen Batch & Tarif Uang Saku** | ❌ | ❌ | ✅ | ✅ | ✅ |
 | **Rekapitulasi Uang Saku & Lembur** | ❌ | ❌ | ✅ | ✅ | ✅ |
 | **Rekap Evaluasi & Penilaian Magang** | ❌ | ❌ | ✅ | ✅ | ✅ |
 | **Kelola Hari Libur & Import Massal** | ❌ | ❌ | ✅ | ✅ | ✅ |
 | **Pengaturan Jam Kerja Resmi** | ❌ | ❌ | ❌ | ❌ | ✅ *(Super Admin)* |
-| **Ubah Titik Lokasi & Radius Kantor** | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **Manajemen Akun User (CRUD & Role)** | ❌ | ❌ | ❌ | ❌ | ✅ *(Super Admin)* |
+| **Ubah Titik Lokasi & Radius Kantor** | ❌ | ❌ | ❌ | ❌ | ✅ *(Super Admin)* |
+| **Manajemen Akun, Divisi & Role** | ❌ | ❌ | ❌ | ❌ | ✅ *(Super Admin)* |
 | **Reset Data Wajah Mahasiswa** | ❌ | ❌ | ❌ | ❌ | ✅ *(Super Admin)* |
-| **Hapus Absensi Hari Ini (Reset Hari Ini)** | ❌ | ❌ | ❌ | ❌ | ✅ *(Super Admin)* |
+| **Hapus / Kosongkan Sel Absensi** | ❌ | ❌ | ❌ | ❌ | ✅ *(Super Admin)* |
 
 ---
 

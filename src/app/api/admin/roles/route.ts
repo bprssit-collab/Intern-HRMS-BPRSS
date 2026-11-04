@@ -35,7 +35,7 @@ const DEFAULT_CORE_ROLES: RoleItem[] = [
     badge: 'KEPALA HRD',
     color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
     description:
-      'Pimpinan divisi SDM / HRD dengan wewenang persetujuan (approval) rekapitulasi uang saku, monitoring riwayat absensi, dan koreksi izin absensi.',
+      'Pimpinan divisi SDM / HRD dengan wewenang persetujuan (approval) rekapitulasi uang saku, monitoring riwayat absensi, dan koreksi absensi semua kode (maks 5x edit).',
     portal_access: 'hrd',
     is_system: true,
     permissions: {
@@ -44,7 +44,7 @@ const DEFAULT_CORE_ROLES: RoleItem[] = [
       manage_roles: false,
       manage_batches: true,
       view_attendance_history: true,
-      edit_attendance: 'once',
+      edit_attendance: '5x',
       reset_face: false,
       payout_access: true,
       payout_approval: true,
@@ -58,7 +58,7 @@ const DEFAULT_CORE_ROLES: RoleItem[] = [
     badge: 'STAF HRD',
     color: 'bg-teal-500/20 text-teal-300 border-teal-500/40',
     description:
-      'Staf operasional HRD yang mengelola batch, rekapitulasi kehadiran, penginputan izin/sakit anak magang, dan operasional harian.',
+      'Staf operasional HRD yang mengelola batch, rekapitulasi kehadiran, penginputan & koreksi absensi semua kode (maks 3x edit), serta operasional harian.',
     portal_access: 'hrd',
     is_system: true,
     permissions: {
@@ -67,7 +67,7 @@ const DEFAULT_CORE_ROLES: RoleItem[] = [
       manage_roles: false,
       manage_batches: true,
       view_attendance_history: true,
-      edit_attendance: 'once',
+      edit_attendance: '3x',
       reset_face: false,
       payout_access: true,
       payout_approval: false,
@@ -161,10 +161,19 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const formatted = (rolesData || []).map((r: any) => ({
-      ...r,
-      user_count: userCountMap[r.key] || 0,
-    }));
+    const formatted = (rolesData || []).map((r: any) => {
+      const perms = { ...(r.permissions || {}) };
+      if (r.key === 'kepala_hrd' && perms.edit_attendance === 'once') {
+        perms.edit_attendance = '5x';
+      } else if (r.key === 'staf_hrd' && perms.edit_attendance === 'once') {
+        perms.edit_attendance = '3x';
+      }
+      return {
+        ...r,
+        permissions: perms,
+        user_count: userCountMap[r.key] || 0,
+      };
+    });
 
     return NextResponse.json({
       success: true,

@@ -20,8 +20,8 @@ import {
   CheckCircle,
   X,
 } from 'lucide-react';
-import { formatDateID, getDefaultRecapRange } from '@/lib/utils';
-import { getAttendanceEditPolicy } from '@/lib/permissions';
+import { formatDateID, getDefaultRecapRange, todayISO } from '@/lib/utils';
+import { getAttendanceEditPolicy, isNotesRequiredForCode } from '@/lib/permissions';
 import type { AttendanceRecapData, AttendanceCode, Batch, UserRole } from '@/types';
 
 export default function AttendanceRecapPage() {
@@ -124,11 +124,11 @@ export default function AttendanceRecapPage() {
   };
 
   const handleDeleteAttendance = async (userId: string, date?: string, userName?: string) => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = todayISO();
     const targetDate = date || todayStr;
     const confirmMessage = `Apakah Anda yakin ingin MENGHAPUS data absensi ${
       userName ? `untuk "${userName}"` : ''
-    } pada tanggal ${formatDateID(targetDate)}?\n\nSetelah dihapus, anak magang dapat melakukan absen ulang pada hari tersebut.`;
+    } pada tanggal ${formatDateID(targetDate)}?\n\nSetelah dihapus, sel absensi akan dikosongkan dan anak magang dapat melakukan absen ulang.`;
 
     if (!window.confirm(confirmMessage)) return;
 
@@ -195,6 +195,11 @@ export default function AttendanceRecapPage() {
     e.preventDefault();
     if (!editModal) return;
 
+    if (!editModal.currentCode) {
+      alert('Silakan pilih salah satu kode kehadiran terlebih dahulu.');
+      return;
+    }
+
     // Check policy before sending
     const activeRole = (currentUser?.role || data?.currentRole) as any;
     const policy = getAttendanceEditPolicy(activeRole, {
@@ -207,14 +212,15 @@ export default function AttendanceRecapPage() {
       return;
     }
 
-    if (policy.requireNotes && !editModal.currentNotes.trim()) {
-      alert('Keterangan wajib diisi untuk status izin, sakit, atau alpa.');
+    const notesMandatory = policy.requireNotes || isNotesRequiredForCode(editModal.currentCode);
+    if (notesMandatory && !editModal.currentNotes.trim()) {
+      alert('Keterangan wajib diisi untuk status Izin (I), Sakit (S), atau Alpa (A).');
       return;
     }
 
     if (policy.oneTimeOnly) {
       const confirmSave = window.confirm(
-        'Perhatian: Perubahan status ini HANYA DAPAT DILAKUKAN 1 KALI. Setelah disimpan, status akan terkunci dan tidak dapat diubah lagi oleh role Anda.\n\nApakah Anda yakin ingin menyimpan?'
+        `Perhatian: Ini adalah kesempatan edit terakhir (${editModal.editCount + 1}/${policy.maxEdits ?? 1}) untuk role Anda pada tanggal ini. Setelah disimpan, status tidak dapat diubah lagi oleh role Anda.\n\nApakah Anda yakin ingin menyimpan?`
       );
       if (!confirmSave) return;
     }
@@ -797,9 +803,19 @@ export default function AttendanceRecapPage() {
                 </div>
               ) : (
                 <form onSubmit={handleSaveCell} className="space-y-4">
-                  {policy.oneTimeOnly && (
-                    <div className="p-2.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs leading-relaxed flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+                  {policy.hasEditLimit && (
+                    <div
+                      className={`p-2.5 rounded-lg text-xs leading-relaxed flex items-start gap-2 border ${
+                        policy.oneTimeOnly
+                          ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                          : 'bg-cyan-500/10 border-cyan-500/25 text-cyan-200'
+                      }`}
+                    >
+                      <AlertCircle
+                        className={`w-4 h-4 shrink-0 mt-0.5 ${
+                          policy.oneTimeOnly ? 'text-amber-400' : 'text-cyan-400'
+                        }`}
+                      />
                       <span>{policy.message}</span>
                     </div>
                   )}
@@ -844,62 +860,72 @@ export default function AttendanceRecapPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                      <span>Keterangan Rinci {policy.requireNotes ? <span className="text-rose-400 font-bold">*Wajib Diisi</span> : <span className="text-slate-500 font-normal">(Opsional)</span>}</span>
-                    </label>
-                    <textarea
-                      rows={3}
-                      required={policy.requireNotes}
-                      value={editModal.currentNotes}
-                      onChange={(e) => setEditModal({ ...editModal, currentNotes: e.target.value })}
-                      placeholder={
-                        policy.requireNotes
-                          ? 'Wajib diisi alasan sakit, izin, atau alpa...'
-                          : 'Misal: Masuk kuliah dan ada rapat prodi / Pembekalan...'
-                      }
-                      className="input-field text-xs w-full resize-none"
-                    />
-                  </div>
+                  {(() => {
+                    const notesMandatory = policy.requireNotes || isNotesRequiredForCode(editModal.currentCode);
+                    return (
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                          <span>
+                            Keterangan Rinci{' '}
+                            {notesMandatory ? (
+                              <span className="text-rose-400 font-bold">*Wajib Diisi</span>
+                            ) : (
+                              <span className="text-slate-500 font-normal">(Opsional)</span>
+                            )}
+                          </span>
+                        </label>
+                        <textarea
+                          rows={3}
+                          required={notesMandatory}
+                          value={editModal.currentNotes}
+                          onChange={(e) => setEditModal({ ...editModal, currentNotes: e.target.value })}
+                          placeholder={
+                            notesMandatory
+                              ? 'Wajib diisi alasan sakit, izin, atau alpa...'
+                              : 'Opsional: Misal masuk kuliah, pembekalan, atau catatan lembur...'
+                          }
+                          className="input-field text-xs w-full resize-none"
+                        />
+                      </div>
+                    );
+                  })()}
 
                   <div className="flex items-center justify-between gap-2 pt-3 border-t border-white/10">
-                {/* Super Admin: Delete today's attendance record */}
-                {activeRole === 'super_admin' &&
-                editModal.date === new Date().toISOString().split('T')[0] &&
-                editModal.currentCode !== null ? (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteAttendance(editModal.userId, editModal.date, editModal.userName)}
-                    disabled={isSavingCell || isDeletingAttendance}
-                    className="px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                    title="Hapus rekaman absensi hari ini agar intern dapat absen ulang"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Hapus Absen Hari Ini</span>
-                  </button>
-                ) : (
-                  <div />
-                )}
+                    {/* Super Admin: Delete / clear attendance record */}
+                    {activeRole === 'super_admin' && editModal.initialCode !== null ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAttendance(editModal.userId, editModal.date, editModal.userName)}
+                        disabled={isSavingCell || isDeletingAttendance}
+                        className="px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                        title="Hapus / kosongkan rekaman absensi pada tanggal ini"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Hapus Absen</span>
+                      </button>
+                    ) : (
+                      <div />
+                    )}
 
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditModal(null)}
-                    className="btn-secondary text-xs"
-                    disabled={isSavingCell || isDeletingAttendance}
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSavingCell || isDeletingAttendance}
-                    className="btn-primary text-xs flex items-center gap-1.5"
-                  >
-                    {isSavingCell ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                    Simpan Status
-                  </button>
-                </div>
-              </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditModal(null)}
+                        className="btn-secondary text-xs"
+                        disabled={isSavingCell || isDeletingAttendance}
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSavingCell || isDeletingAttendance}
+                        className="btn-primary text-xs flex items-center gap-1.5"
+                      >
+                        {isSavingCell ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        Simpan Status
+                      </button>
+                    </div>
+                  </div>
                 </form>
               )}
             </div>
@@ -926,7 +952,7 @@ export default function AttendanceRecapPage() {
                   <p className="text-slate-400 text-xs">
                     Tanggal:{' '}
                     <strong className="text-cyan-300">
-                      {formatDateID(new Date().toISOString().split('T')[0])}
+                      {formatDateID(todayISO())}
                     </strong>
                   </p>
                 </div>

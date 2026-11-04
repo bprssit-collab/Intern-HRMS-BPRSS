@@ -78,7 +78,18 @@ export default function RolesManagementPage() {
   };
 
   useEffect(() => {
-    fetchRoles();
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((json) => {
+        if (!json.success || json.data?.role !== 'super_admin') {
+          window.location.href = '/hrd/dashboard';
+          return;
+        }
+        fetchRoles();
+      })
+      .catch(() => {
+        window.location.href = '/hrd/dashboard';
+      });
   }, []);
 
   const openCreateModal = () => {
@@ -518,14 +529,26 @@ export default function RolesManagementPage() {
                           className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
                             e === 'unlimited'
                               ? 'bg-purple-500/20 text-purple-300'
-                              : e === 'once'
+                              : e === '5x'
+                              ? 'bg-emerald-500/20 text-emerald-300'
+                              : e === '3x' || e === 'once'
                               ? 'bg-teal-500/20 text-teal-300'
                               : e === 'notes_only'
                               ? 'bg-amber-500/20 text-amber-300'
                               : 'bg-slate-500/10 text-slate-500'
                           }`}
                         >
-                          {e === 'unlimited' ? 'Tanpa Batas' : e === 'once' ? 'Maks 1x Edit' : e === 'notes_only' ? 'Hanya Izin/S' : 'Terkunci'}
+                          {e === 'unlimited'
+                            ? 'Tanpa Batas (6 Kode)'
+                            : e === '5x'
+                            ? 'Maks 5x Edit (6 Kode)'
+                            : e === '3x'
+                            ? 'Maks 3x Edit (6 Kode)'
+                            : e === 'once'
+                            ? 'Maks 1x Edit'
+                            : e === 'notes_only'
+                            ? 'Maks 1x (Hanya I/S/A)'
+                            : 'Terkunci'}
                         </span>
                       </td>
                     );

@@ -12,8 +12,11 @@ export default async function InternLayout({
 }) {
   const session = await getSession();
 
-  if (!session || session.role !== 'intern') {
+  if (!session) {
     redirect('/');
+  }
+  if (session.role !== 'intern') {
+    redirect('/hrd/dashboard');
   }
 
   return (

@@ -65,10 +65,10 @@ export function computeBatchWorkingDaysSummary(
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole(HRD_PORTAL_ROLES);
+    const session = await requireRole(MANAGER_ROLES);
     if (!session) {
       return NextResponse.json(
-        { success: false, error: 'Akses ditolak.' },
+        { success: false, error: 'Akses ditolak. Khusus Staf HRD, Kepala HRD, dan Super Admin.' },
         { status: 403 }
       );
     }

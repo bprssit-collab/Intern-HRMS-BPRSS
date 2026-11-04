@@ -1,21 +1,20 @@
 /**
  * POST /api/attendance/reset-today
- * Deletes today's attendance record for the current intern so they can re-test check-in and check-out.
+ * Super Admin only: Deletes today's attendance record for the current user.
  */
 
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { requireRole } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase';
-import { INTERN_PORTAL_ROLES } from '@/lib/permissions';
 import { todayISO } from '@/lib/utils';
 
 export async function POST() {
   try {
-    const session = await getSession();
+    const session = await requireRole('super_admin');
 
-    if (!session || !INTERN_PORTAL_ROLES.includes(session.role)) {
+    if (!session) {
       return NextResponse.json(
-        { success: false, error: 'Tidak memiliki izin.' },
+        { success: false, error: 'Akses ditolak. Hanya Super Admin yang dapat mereset absensi.' },
         { status: 403 }
       );
     }
@@ -33,7 +32,7 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: 'Data absensi hari ini berhasil di-reset untuk pengujian.',
+      message: 'Data absensi hari ini berhasil di-reset.',
     });
   } catch (error) {
     console.error('[/api/attendance/reset-today] Error:', error);
