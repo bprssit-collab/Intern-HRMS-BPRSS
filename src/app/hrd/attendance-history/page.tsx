@@ -14,7 +14,7 @@ import {
   UserCheck,
   UserX,
 } from 'lucide-react';
-import { formatDateID, todayISO } from '@/lib/utils';
+import { formatDateID, formatTime, todayISO } from '@/lib/utils';
 
 interface AttendedItem {
   id: string;
@@ -311,10 +311,12 @@ export default function AttendanceHistoryPage() {
                       </td>
                       <td className="py-2.5 px-3 text-slate-300">{item.batch_name}</td>
                       <td className="py-2.5 px-3 font-mono font-bold text-emerald-400">
-                        {item.check_in_time || '-'}
+                        {item.check_in_time ? formatTime(item.check_in_time) : '-'}
                       </td>
                       <td className="py-2.5 px-3 font-mono text-amber-300">
-                        {item.check_out_time || (
+                        {item.check_out_time ? (
+                          formatTime(item.check_out_time)
+                        ) : (
                           <span className="text-slate-500 italic">Belum checkout</span>
                         )}
                       </td>

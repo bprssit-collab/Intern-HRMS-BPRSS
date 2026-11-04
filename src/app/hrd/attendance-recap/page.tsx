@@ -20,7 +20,7 @@ import {
   CheckCircle,
   X,
 } from 'lucide-react';
-import { formatDateID, getDefaultRecapRange, todayISO } from '@/lib/utils';
+import { formatDateID, formatTime, getDefaultRecapRange, todayISO } from '@/lib/utils';
 import { getAttendanceEditPolicy, isNotesRequiredForCode } from '@/lib/permissions';
 import type { AttendanceRecapData, AttendanceCode, Batch, UserRole } from '@/types';
 
@@ -997,8 +997,8 @@ export default function AttendanceRecapPage() {
                         {att.user_email}
                       </div>
                       <div className="text-[11px] text-slate-300 mt-1 flex items-center gap-3">
-                        <span>Masuk: <strong className="text-emerald-400 font-mono">{att.check_in_time || '-'}</strong></span>
-                        <span>Pulang: <strong className="text-amber-400 font-mono">{att.check_out_time || '-'}</strong></span>
+                        <span>Masuk: <strong className="text-emerald-400 font-mono">{att.check_in_time ? formatTime(att.check_in_time) : '-'}</strong></span>
+                        <span>Pulang: <strong className="text-amber-400 font-mono">{att.check_out_time ? formatTime(att.check_out_time) : '-'}</strong></span>
                         <span>Status: <strong className="text-cyan-300 uppercase">{att.status || att.attendance_status || '-'}</strong></span>
                       </div>
                     </div>

@@ -36,14 +36,20 @@ export function formatDateID(dateStr: string | null | undefined): string {
   return `${day}/${month}/${year}`;
 }
 
-/** Formats a datetime string to time-only HH:MM in Asia/Jakarta (WIB) */
-export function formatTime(dateStr: string): string {
+/** Formats a datetime string to time-only HH:MM WIB in Asia/Jakarta (WIB) */
+export function formatTime(dateStr: string | null | undefined): string {
   if (!dateStr) return '--:--';
-  return new Date(dateStr).toLocaleTimeString('id-ID', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Jakarta',
-  });
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return String(dateStr);
+  const timePart = d
+    .toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Jakarta',
+    })
+    .replace(/\./g, ':');
+  return `${timePart} WIB`;
 }
 
 /** Returns today's date as YYYY-MM-DD string in Asia/Jakarta (WIB) */
