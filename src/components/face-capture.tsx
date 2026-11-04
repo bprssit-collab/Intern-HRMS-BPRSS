@@ -623,28 +623,6 @@ export function FaceCapture({
     startLiveDetectionLoop();
   };
 
-  const handleSimulateFace = async () => {
-    setIsProcessing(true);
-    setError(null);
-    setSuccess(false);
-    try {
-      const synthetic = Array.from({ length: 128 }, (_, i) => Math.sin(i) * 0.08);
-      const result = await onCapture(synthetic);
-      if (result && typeof result === 'object' && result.success === false) {
-        setSuccess(false);
-        setError(result.message || 'Wajah simulasi tidak cocok.');
-      } else {
-        setSuccess(true);
-        setError(null);
-      }
-    } catch (err: any) {
-      setSuccess(false);
-      setError(err.message || 'Gagal simulasi');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   return (
     <div className="flex flex-col items-center w-full max-w-md mx-auto animate-fade-in">
       <div className="w-full flex items-center justify-between mb-3 px-1">
@@ -1118,17 +1096,6 @@ export function FaceCapture({
                 </div>
               )}
             </div>
-          )}
-          
-          {/* Fallback simulation button for testing if webcam is unavailable */}
-          {(!streamRef.current || error) && !isInitializing && (
-            <button
-              type="button"
-              onClick={handleSimulateFace}
-              className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 rounded-xl text-xs font-medium transition-colors"
-            >
-              📸 Uji Coba dengan Data Wajah Simulasi (Testing Mode)
-            </button>
           )}
         </div>
       )}

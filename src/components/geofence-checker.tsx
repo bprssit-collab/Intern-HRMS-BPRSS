@@ -26,7 +26,7 @@ export function GeofenceChecker({ officePos, maxRadius, onValid }: GeofenceCheck
         if (!mounted) return;
 
         const result = validateGeofence(userPos, officePos, maxRadius);
-        
+
         if (result.isValid) {
           setStatus('valid');
           setMessage(result.message);
@@ -58,7 +58,7 @@ export function GeofenceChecker({ officePos, maxRadius, onValid }: GeofenceCheck
       status === 'invalid' && "border-red-500/50 bg-red-950/20",
       status === 'error' && "border-amber-500/50 bg-amber-950/20"
     )}>
-      
+
       {status === 'checking' && (
         <>
           <div className="bg-blue-500/20 p-4 rounded-full mb-4">
@@ -86,24 +86,12 @@ export function GeofenceChecker({ officePos, maxRadius, onValid }: GeofenceCheck
           </div>
           <h3 className="font-semibold text-lg mb-1 text-red-400">Di Luar Jangkauan</h3>
           <p className="text-sm text-slate-300">{message}</p>
-          <div className="flex flex-col gap-2 mt-4 w-full">
-            <button 
-              onClick={() => window.location.reload()} 
+          <div className="mt-4 w-full">
+            <button
+              onClick={() => window.location.reload()}
               className="btn-secondary text-sm w-full"
             >
               Coba Lagi
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStatus('valid');
-                setMessage('Mode Demo: Simulasi lokasi di kantor aktif (jarak 15m).');
-                setDistance(15);
-                onValid({ lat: officePos.lat, long: officePos.long }, 15);
-              }}
-              className="px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs transition-colors"
-            >
-              📍 Simulasikan di Kantor (Demo Testing)
             </button>
           </div>
         </>
@@ -116,24 +104,12 @@ export function GeofenceChecker({ officePos, maxRadius, onValid }: GeofenceCheck
           </div>
           <h3 className="font-semibold text-lg mb-1 text-amber-400">Akses GPS Gagal</h3>
           <p className="text-sm text-slate-300">{message}</p>
-          <div className="flex flex-col gap-2 mt-4 w-full">
-            <button 
-              onClick={() => window.location.reload()} 
+          <div className="mt-4 w-full">
+            <button
+              onClick={() => window.location.reload()}
               className="btn-secondary text-sm w-full"
             >
               Coba Lagi
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStatus('valid');
-                setMessage('Mode Demo: Simulasi lokasi di kantor aktif (jarak 15m).');
-                setDistance(15);
-                onValid({ lat: officePos.lat, long: officePos.long }, 15);
-              }}
-              className="px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs transition-colors"
-            >
-              📍 Simulasikan di Kantor (Demo Testing)
             </button>
           </div>
         </>
