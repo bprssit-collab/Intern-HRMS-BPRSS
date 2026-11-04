@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { GeofenceChecker } from '@/components/geofence-checker';
 import { FaceCapture } from '@/components/face-capture';
 import { compareFaceDescriptors } from '@/lib/face-api';
 import { todayISO } from '@/lib/utils';
 import type { GeoPosition, Settings, User } from '@/types';
-import { AlertCircle, CheckCircle, Clock, RotateCcw } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock } from 'lucide-react';
 
 interface AttendancePanelProps {
   dashboardHref: string;
@@ -29,7 +30,6 @@ export function AttendancePanel({
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
   const [hasCheckedOut, setHasCheckedOut] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
 
   const [step, setStep] = useState<'geofence' | 'face' | 'done'>('geofence');
   const [locationData, setLocationData] = useState<{ pos: GeoPosition; distance: number } | null>(null);
@@ -155,26 +155,6 @@ export function AttendancePanel({
     }
   };
 
-  const handleResetToday = async () => {
-    if (!confirm('Apakah Anda ingin mereset data absensi hari ini untuk uji coba lagi?')) return;
-    setIsResetting(true);
-    try {
-      const res = await fetch('/api/attendance/reset-today', { method: 'POST' });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Gagal mereset absensi.');
-      }
-      setHasCheckedIn(false);
-      setHasCheckedOut(false);
-      setLocationData(null);
-      setStep('geofence');
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className={`flex flex-col items-center justify-center h-64 ${wrapperClassName}`}>
@@ -250,19 +230,13 @@ export function AttendancePanel({
                 : 'Selamat bekerja! Jangan lupa absen keluar nanti.'}
             </p>
 
-            <div className="pt-6 border-t border-white/10 w-full max-w-sm">
-              <button
-                type="button"
-                onClick={handleResetToday}
-                disabled={isResetting}
-                className="px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 mx-auto transition-all w-full disabled:opacity-50"
+            <div className="pt-6 border-t border-white/10 w-full max-w-xs">
+              <Link
+                href={dashboardHref}
+                className="btn-primary text-xs w-full justify-center flex items-center gap-1.5 py-2.5"
               >
-                <RotateCcw className="w-4 h-4" />
-                {isResetting ? 'Mereset Data Absensi...' : 'Uji Coba Absensi Lagi (Reset Absen Hari Ini)'}
-              </button>
-              <p className="text-[11px] text-slate-500 mt-2">
-                Tombol mode pengujian agar Anda dapat mencoba alur presensi GPS & Wajah berulang kali.
-              </p>
+                Kembali ke Dashboard
+              </Link>
             </div>
           </div>
         ) : step === 'geofence' ? (

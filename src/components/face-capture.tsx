@@ -24,8 +24,7 @@ import {
   ArrowRight,
   ArrowLeft,
   UserCheck,
-  ShieldCheck,
-  FastForward
+  ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -359,17 +358,6 @@ export function FaceCapture({
       setRegStep(nextStep);
     }
   }, []);
-
-  const skipCurrentStep = useCallback(() => {
-    const order: LivenessStep[] = ['front', 'turn', 'final'];
-    const idx = order.indexOf(regStepRef.current);
-    if (idx >= 0 && idx < order.length - 1) {
-      const next = order[idx + 1];
-      advanceStep(order[idx], next, `✓ Langkah dilewati`);
-    } else {
-      finalizeRegistration();
-    }
-  }, [advanceStep, finalizeRegistration]);
 
   // Main real-time live detection loop
   const startLiveDetectionLoop = useCallback(() => {
@@ -1104,19 +1092,11 @@ export function FaceCapture({
                 />
               </div>
 
-              {/* Subtitle & Skip step */}
-              <div className="flex items-center justify-between text-[11px] px-1 pt-1">
+              {/* Subtitle */}
+              <div className="text-[11px] px-1 pt-1 text-center">
                 <span className="text-slate-400">
                   Tahan posisi santai saat hitungan mundur muncul
                 </span>
-                <button
-                  type="button"
-                  onClick={skipCurrentStep}
-                  className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors underline cursor-pointer"
-                >
-                  <FastForward className="w-3 h-3" />
-                  Lewati Gerakan
-                </button>
               </div>
             </div>
           ) : (
