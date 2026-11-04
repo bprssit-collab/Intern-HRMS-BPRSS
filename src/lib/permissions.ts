@@ -112,14 +112,14 @@ export function getAttendanceEditPolicy(
 
   if (target.attended) {
     if (role === 'intern_hrd') {
-      return locked('Kode kehadiran H / 1/2 hanya dapat diubah oleh Staf HRD atau Kepala HRD.');
+      return locked('Kode kehadiran H / 1/2 / HL hanya dapat diubah oleh Staf HRD, Kepala HRD, atau Super Admin.');
     }
     if (!isSuper && target.editCount >= 1) {
       return locked('Kode kehadiran ini sudah pernah diubah 1x. Hanya Super Admin yang dapat mengubahnya lagi.');
     }
     return {
       allowed: true,
-      allowedCodes: isSuper ? ['H', '1/2', 'I', 'S', 'A'] : ['H', '1/2'],
+      allowedCodes: isSuper ? ['H', '1/2', 'HL', 'I', 'S', 'A'] : ['H', '1/2', 'HL'],
       requireNotes: false,
       oneTimeOnly: !isSuper,
       message: isSuper
@@ -134,11 +134,11 @@ export function getAttendanceEditPolicy(
   }
   return {
     allowed: true,
-    allowedCodes: ['S', 'I', 'A'],
+    allowedCodes: role === 'intern_hrd' ? ['S', 'I', 'A'] : ['S', 'I', 'A', 'HL'],
     requireNotes: true,
     oneTimeOnly: !isSuper,
     message: isSuper
-      ? 'Intern tidak absen. Pilih S / I / A dan isi keterangan.'
+      ? 'Intern tidak absen. Pilih S / I / A (atau HL untuk Lembur) dan isi keterangan.'
       : 'Intern tidak absen. Pilih S / I / A dan isi keterangan. Perubahan hanya dapat dilakukan 1x.',
   };
 }

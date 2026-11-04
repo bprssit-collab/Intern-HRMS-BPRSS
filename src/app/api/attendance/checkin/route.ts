@@ -8,7 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { requireRole } from '@/lib/auth';
 import { INTERN_PORTAL_ROLES } from '@/lib/permissions';
-import { todayISO } from '@/lib/utils';
+import { todayISO, dayOfWeekISO } from '@/lib/utils';
+import { getHolidaysList } from '@/lib/work-config';
 
 import { verifyFaceDescriptors } from '@/lib/face-math';
 
@@ -76,28 +77,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert new attendance record
-    const { data, error } = await supabase
+    // Check if today is a weekend (Saturday/Sunday) or registered national holiday
+    const dow = dayOfWeekISO(today);
+    const isWeekend = dow === 0 || dow === 6;
+    const { holidays: todayHolidays } = await getHolidaysList(supabase, {
+      startDate: today,
+      endDate: today,
+    });
+    const isHoliday = todayHolidays.length > 0;
+    const isOvertimeDay = isWeekend || isHoliday;
+    const overtimeNote = isOvertimeDay
+      ? `[LEMBUR] Hadir pada ${isHoliday ? todayHolidays[0].name : dow === 6 ? 'Hari Sabtu' : 'Hari Minggu'}`
+      : null;
+
+    const basePayload: Record<string, any> = {
+      user_id: session.id,
+      date: today,
+      check_in_time: now,
+      check_in_lat: parseFloat(lat),
+      check_in_long: parseFloat(long),
+      distance_from_office: parseFloat(distance_from_office),
+      status: 'pending',
+      is_perbantuan: userRow?.status === 'perbantuan',
+      ...(overtimeNote ? { notes: overtimeNote } : {}),
+    };
+
+    // Try inserting with is_overtime column first (migration_v6), fallback cleanly if column not yet added
+    let insertRes = await supabase
       .from('attendance')
       .insert({
-        user_id: session.id,
-        date: today,
-        check_in_time: now,
-        check_in_lat: parseFloat(lat),
-        check_in_long: parseFloat(long),
-        distance_from_office: parseFloat(distance_from_office),
-        status: 'pending',
-        is_perbantuan: userRow?.status === 'perbantuan',
+        ...basePayload,
+        ...(isOvertimeDay ? { is_overtime: true, overtime_approved: false } : {}),
       })
       .select()
       .single();
 
-    if (error) throw error;
+    if (insertRes.error && isOvertimeDay) {
+      insertRes = await supabase
+        .from('attendance')
+        .insert(basePayload)
+        .select()
+        .single();
+    }
+
+    if (insertRes.error) throw insertRes.error;
+    const data = insertRes.data;
 
     return NextResponse.json({
       success: true,
       data,
-      message: `Absen masuk berhasil pada ${new Date(now).toLocaleTimeString('id-ID')}.`,
+      message: isOvertimeDay
+        ? `Absen masuk (Lembur) berhasil pada ${new Date(now).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB.`
+        : `Absen masuk berhasil pada ${new Date(now).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB.`,
     });
 
   } catch (error) {

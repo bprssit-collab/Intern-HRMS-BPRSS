@@ -34,7 +34,19 @@ export interface Batch {
   half_day_rate: number;       // IDR normal half day rate (e.g. 25000)
   perbantuan_full_day_rate: number; // IDR perbantuan full day rate (e.g. 75000)
   perbantuan_half_day_rate: number; // IDR perbantuan half day rate (e.g. 37500)
+  overtime_rate?: number;      // IDR overtime / Saturday / holiday rate (default 50000)
   created_at: string;
+}
+
+export type HolidayType = 'national' | 'cuti_bersama' | 'company';
+
+export interface Holiday {
+  id: string;
+  date: string;                // YYYY-MM-DD
+  name: string;
+  type: HolidayType;
+  created_by?: string | null;
+  created_at?: string;
 }
 
 export interface Department {
@@ -83,11 +95,14 @@ export interface Settings {
   half_day_rate: number;   // IDR - HRD-only context
   perbantuan_full_day_rate?: number;
   perbantuan_half_day_rate?: number;
+  work_start_time?: string;   // 'HH:MM', default '08:30'
+  full_day_max_in?: string;   // 'HH:MM', default '10:30'
+  work_end_time?: string;     // 'HH:MM', default '16:00'
   updated_at: string;
 }
 
 export type AttendanceStatus = 'full_day' | 'half_day' | 'pending';
-export type AttendanceCode = 'H' | '1/2' | 'I' | 'S' | 'A';
+export type AttendanceCode = 'H' | '1/2' | 'I' | 'S' | 'A' | 'HL';
 
 export interface Attendance {
   id: string;
@@ -99,8 +114,10 @@ export interface Attendance {
   check_in_long: number | null;
   distance_from_office: number | null; // meters
   status: AttendanceStatus | null;
-  attendance_status?: AttendanceCode | null; // 'H', '1/2', 'I', 'S', 'A'
+  attendance_status?: AttendanceCode | null; // 'H', '1/2', 'I', 'S', 'A', 'HL'
   is_perbantuan?: boolean;             // True if attended during perbantuan period
+  is_overtime?: boolean;               // True if attended on Saturday/Sunday/Holiday (Lembur)
+  overtime_approved?: boolean;         // True if HRD approved the overtime attendance
   notes?: string | null;               // Detailed notes/reasons (e.g. "Masuk kuliah & rapat prodi")
   edit_count?: number;                 // How many times HRD manually edited the attendance code
   last_edited_by?: string | null;      // users.id of the last editor
@@ -151,12 +168,15 @@ export interface PayoutSummary {
   half_day_count: number;
   perbantuan_full_count?: number;
   perbantuan_half_count?: number;
+  overtime_count?: number;
   normal_amount?: number;
   perbantuan_amount?: number;
+  overtime_amount?: number;
   full_day_rate: number;       // IDR per day
   half_day_rate: number;       // IDR per day
   perbantuan_full_rate?: number;
   perbantuan_half_rate?: number;
+  overtime_rate?: number;
   total_amount: number;        // total IDR
 }
 
@@ -168,10 +188,14 @@ export interface MatrixCell {
   date: string;
   code: AttendanceCode | null;
   is_weekend: boolean;
+  is_holiday?: boolean;
+  holiday_name?: string | null;
   is_perbantuan?: boolean;
+  is_overtime?: boolean;
+  overtime_approved?: boolean;
   notes?: string | null;
   record_id?: string;
-  attended?: boolean;   // intern physically checked in (or has H / 1/2 code)
+  attended?: boolean;   // intern physically checked in (or has H / 1/2 / HL code)
   edit_count?: number;  // number of manual edits already applied
 }
 
@@ -188,6 +212,7 @@ export interface MatrixRow {
     A: number;
     Full: number;
     Half: number;
+    HL?: number;
   };
   notesList: string[]; // aggregated notes from days
 }
@@ -201,10 +226,48 @@ export interface AttendanceRecapData {
   batch: Batch;
   startDate: string;
   endDate: string;
-  dateList: { date: string; dayName: string; is_weekend: boolean; weekLabel: string }[];
+  dateList: {
+    date: string;
+    dayName: string;
+    is_weekend: boolean;
+    is_holiday?: boolean;
+    holiday_name?: string | null;
+    weekLabel: string;
+  }[];
   weeks: { label: string; dateCount: number }[];
   departments: MatrixDepartmentGroup[];
   currentRole?: UserRole;
+}
+
+// ============================================================
+// INTERNSHIP EVALUATION SUMMARY TYPES (Rekap Penilaian Magang)
+// ============================================================
+
+export interface InternshipSummaryRow {
+  user_id: string;
+  name: string;
+  username: string;
+  department: string;
+  status: InternStatus;
+  full_day_count: number;
+  half_day_count: number;
+  overtime_count: number;
+  izin_count: number;
+  sakit_count: number;
+  alpa_count: number;
+  total_days_present: number;       // H + (0.5 * Half)
+  total_hours: number;              // decimal hours, e.g. 524.5
+  total_hours_formatted: string;    // e.g. "524j 30m"
+  attendance_percentage: number;    // 0 - 100
+}
+
+export interface InternshipSummaryData {
+  batch: Batch;
+  effective_working_days: number;
+  total_calendar_days: number;
+  weekend_days: number;
+  holiday_days: number;
+  rows: InternshipSummaryRow[];
 }
 
 // ============================================================

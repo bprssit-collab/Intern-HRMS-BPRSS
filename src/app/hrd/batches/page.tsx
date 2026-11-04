@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Layers, Plus, Edit2, CheckCircle2, Clock, DollarSign, Calendar, AlertCircle, Loader2 } from 'lucide-react';
 import { formatIDR } from '@/lib/payout-calc';
 import { formatDateID } from '@/lib/utils';
+import { DEFAULT_OVERTIME_RATE } from '@/lib/constants';
 import type { Batch } from '@/types';
 
 export default function BatchesPage() {
@@ -54,13 +55,17 @@ export default function BatchesPage() {
       half_day_rate: 10000,
       perbantuan_full_day_rate: 50000,
       perbantuan_half_day_rate: 25000,
+      overtime_rate: DEFAULT_OVERTIME_RATE,
     });
     setFormError(null);
     setIsModalOpen(true);
   };
 
   const openEditModal = (batch: Batch) => {
-    setEditingBatch({ ...batch });
+    setEditingBatch({
+      ...batch,
+      overtime_rate: batch.overtime_rate ?? DEFAULT_OVERTIME_RATE,
+    });
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -176,7 +181,7 @@ export default function BatchesPage() {
                 </div>
 
                 {/* Rates comparison grid */}
-                <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
                   <div className="bg-white/5 p-3 rounded-lg border border-white/5">
                     <span className="text-[11px] font-semibold text-slate-400 block mb-1">
                       UANG SAKU NORMAL
@@ -190,6 +195,18 @@ export default function BatchesPage() {
                     </span>
                     <p className="text-xs text-slate-300">Full: <strong className="text-amber-300">{formatIDR(batch.perbantuan_full_day_rate)}</strong></p>
                     <p className="text-xs text-slate-300">Half: <strong className="text-amber-300">{formatIDR(batch.perbantuan_half_day_rate)}</strong></p>
+                  </div>
+                  <div className="bg-purple-500/10 p-3 rounded-lg border border-purple-500/20">
+                    <span className="text-[11px] font-semibold text-purple-300 block mb-1">
+                      TARIF LEMBUR (HL)
+                    </span>
+                    <p className="text-xs text-slate-300">
+                      Sabtu/Libur:{' '}
+                      <strong className="text-purple-200">
+                        {formatIDR(batch.overtime_rate ?? DEFAULT_OVERTIME_RATE)}
+                      </strong>
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Per hari lembur disetujui</p>
                   </div>
                 </div>
 
@@ -342,6 +359,29 @@ export default function BatchesPage() {
                       className="input-field text-sm border-amber-500/30"
                     />
                   </div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-white/10">
+                <label className="text-xs font-bold text-purple-300 block mb-2">
+                  Tarif Uang Saku Lembur Sabtu / Hari Libur (Rp)
+                </label>
+                <div className="space-y-1">
+                  <span className="text-[11px] text-slate-400">
+                    Nominal per hari lembur (Kode HL) — Default: Rp 50.000
+                  </span>
+                  <input
+                    type="number"
+                    required
+                    value={editingBatch.overtime_rate ?? DEFAULT_OVERTIME_RATE}
+                    onChange={(e) =>
+                      setEditingBatch({
+                        ...editingBatch,
+                        overtime_rate: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    className="input-field text-sm border-purple-500/30"
+                  />
                 </div>
               </div>
 

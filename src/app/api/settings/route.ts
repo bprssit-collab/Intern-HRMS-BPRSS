@@ -4,14 +4,12 @@
  * part of settings anymore: they are configured per batch in Manajemen Batch.
  *
  * POST /api/settings
- * Updates geofence settings. Requires staf_hrd / kepala_hrd / super_admin
- * (intern_hrd is not allowed).
+ * Updates geofence settings. Requires super_admin only.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { requireRole } from '@/lib/auth';
-import { MANAGER_ROLES } from '@/lib/permissions';
 
 export async function GET() {
   try {
@@ -51,10 +49,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole(MANAGER_ROLES);
+    const session = await requireRole('super_admin');
     if (!session) {
       return NextResponse.json(
-        { success: false, error: 'Akses ditolak. Hanya Staf HRD, Kepala HRD, atau Super Admin yang dapat mengubah pengaturan.' },
+        { success: false, error: 'Akses ditolak. Hanya Super Admin yang dapat mengubah pengaturan lokasi.' },
         { status: 403 }
       );
     }

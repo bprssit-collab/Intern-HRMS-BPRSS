@@ -75,6 +75,10 @@ export default function InternsPage() {
     setError(null);
     try {
       const res = await fetch('/api/hrd/interns');
+      if (res.status === 403) {
+        window.location.href = '/hrd/dashboard';
+        return;
+      }
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'Gagal memuat data anak magang.');
@@ -101,7 +105,13 @@ export default function InternsPage() {
     fetch('/api/auth/me')
       .then((res) => res.json())
       .then((json) => {
-        if (json.success) setCurrentUser(json.data);
+        if (json.success) {
+          if (json.data?.role === 'intern_hrd') {
+            window.location.href = '/hrd/dashboard';
+            return;
+          }
+          setCurrentUser(json.data);
+        }
       })
       .catch(() => {});
 

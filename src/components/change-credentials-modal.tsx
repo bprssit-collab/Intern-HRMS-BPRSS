@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { KeyRound, Lock, User as UserIcon, CheckCircle, AlertCircle, Eye, EyeOff, Sparkles, Loader2, Info } from 'lucide-react';
+import { DEFAULT_INTERN_PASSWORD, LEGACY_DEFAULT_PASSWORDS } from '@/lib/constants';
 
 interface ChangeCredentialsModalProps {
   initialMustChange?: boolean;
@@ -86,8 +87,8 @@ export function ChangeCredentialsModal({ initialMustChange, currentUser }: Chang
     }
 
     // 4. Cannot use default password
-    if (newPassword.toLowerCase() === 'magang2026') {
-      setError('Password baru tidak boleh menggunakan password default (magang2026). Silakan buat password baru yang aman.');
+    if (LEGACY_DEFAULT_PASSWORDS.includes(newPassword.toLowerCase())) {
+      setError(`Password baru tidak boleh menggunakan password default (${DEFAULT_INTERN_PASSWORD}). Silakan buat password baru yang aman.`);
       return;
     }
 

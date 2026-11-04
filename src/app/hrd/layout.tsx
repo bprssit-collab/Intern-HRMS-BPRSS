@@ -14,8 +14,14 @@ import {
   History,
   UserCog,
   ShieldCheck,
+  Camera,
+  ScanFace,
+  Clock,
+  CalendarOff,
+  Award,
 } from 'lucide-react';
 import { LogoutButton } from '../intern/logout-button';
+import { ChangeCredentialsModal } from '@/components/change-credentials-modal';
 
 const ROLE_LABELS: Record<UserRole, { title: string; color: string; badge: string }> = {
   super_admin: { title: 'Super Admin Portal', color: 'text-purple-400', badge: 'SUPER ADMIN' },
@@ -39,10 +45,15 @@ export default async function HrdLayout({
   const role = session.role as UserRole;
   const isSuperAdmin = role === 'super_admin';
   const isManager = MANAGER_ROLES.includes(role as any);
+  const isInternHrd = role === 'intern_hrd';
   const roleMeta = ROLE_LABELS[role] || { title: 'HRD Portal', color: 'text-emerald-400', badge: role };
 
   return (
     <div className="flex h-screen bg-slate-950 overflow-hidden">
+      <ChangeCredentialsModal
+        initialMustChange={session.must_change_credentials}
+        currentUser={session}
+      />
       
       {/* Desktop Sidebar */}
       <aside className="w-64 bg-slate-900 border-r border-white/5 flex flex-col hidden md:flex shrink-0">
@@ -57,6 +68,24 @@ export default async function HrdLayout({
         </div>
         
         <div className="p-4 pb-2 flex-1 overflow-y-auto">
+          {isInternHrd && (
+            <>
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">
+                Absensi Saya
+              </p>
+              <nav className="space-y-1 mb-6">
+                <Link href="/hrd/my-attendance" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-emerald-500/10 hover:text-emerald-200 border border-emerald-500/20 transition-colors">
+                  <Camera className="w-4 h-4 text-emerald-400" />
+                  <span className="font-medium text-sm">Absen Harian</span>
+                </Link>
+                <Link href="/hrd/my-face" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
+                  <ScanFace className="w-4 h-4 text-cyan-400" />
+                  <span className="font-medium text-sm">Data Wajah</span>
+                </Link>
+              </nav>
+            </>
+          )}
+
           <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">
             Absensi & Magang
           </p>
@@ -70,20 +99,28 @@ export default async function HrdLayout({
               <span className="font-medium text-sm">Rekap Absensi</span>
             </Link>
             {isManager && (
-              <Link href="/hrd/attendance-history" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
-                <History className="w-4 h-4 text-orange-400" />
-                <span className="font-medium text-sm">Riwayat Absensi</span>
-              </Link>
-            )}
-            <Link href="/hrd/interns" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
-              <Users className="w-4 h-4 text-cyan-400" />
-              <span className="font-medium text-sm">Data Anak Magang</span>
-            </Link>
-            {isManager && (
-              <Link href="/hrd/batches" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
-                <Layers className="w-4 h-4 text-indigo-400" />
-                <span className="font-medium text-sm">Manajemen Batch</span>
-              </Link>
+              <>
+                <Link href="/hrd/internship-summary" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
+                  <Award className="w-4 h-4 text-emerald-400" />
+                  <span className="font-medium text-sm">Rekap Penilaian</span>
+                </Link>
+                <Link href="/hrd/attendance-history" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
+                  <History className="w-4 h-4 text-orange-400" />
+                  <span className="font-medium text-sm">Riwayat Absensi</span>
+                </Link>
+                <Link href="/hrd/interns" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
+                  <Users className="w-4 h-4 text-cyan-400" />
+                  <span className="font-medium text-sm">Data Anak Magang</span>
+                </Link>
+                <Link href="/hrd/batches" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
+                  <Layers className="w-4 h-4 text-indigo-400" />
+                  <span className="font-medium text-sm">Manajemen Batch</span>
+                </Link>
+                <Link href="/hrd/holidays" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
+                  <CalendarOff className="w-4 h-4 text-rose-400" />
+                  <span className="font-medium text-sm">Hari Libur Nasional</span>
+                </Link>
+              </>
             )}
           </nav>
 
@@ -96,10 +133,6 @@ export default async function HrdLayout({
                 <Link href="/hrd/payout" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
                   <FileSpreadsheet className="w-4 h-4 text-blue-400" />
                   <span className="font-medium text-sm">Rekap Uang Saku</span>
-                </Link>
-                <Link href="/hrd/settings" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
-                  <Settings className="w-4 h-4 text-slate-400" />
-                  <span className="font-medium text-sm">Pengaturan Lokasi</span>
                 </Link>
               </nav>
             </>
@@ -122,6 +155,14 @@ export default async function HrdLayout({
                 <Link href="/hrd/roles" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-purple-500/10 hover:text-purple-200 border border-purple-500/20 transition-colors">
                   <ShieldCheck className="w-4 h-4 text-purple-400" />
                   <span className="font-medium text-sm">Manajemen Role</span>
+                </Link>
+                <Link href="/hrd/work-hours" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-purple-500/10 hover:text-purple-200 border border-purple-500/20 transition-colors">
+                  <Clock className="w-4 h-4 text-purple-400" />
+                  <span className="font-medium text-sm">Pengaturan Jam Absen</span>
+                </Link>
+                <Link href="/hrd/settings" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-purple-500/10 hover:text-purple-200 border border-purple-500/20 transition-colors">
+                  <Settings className="w-4 h-4 text-purple-400" />
+                  <span className="font-medium text-sm">Pengaturan Lokasi</span>
                 </Link>
               </nav>
             </>
@@ -168,16 +209,21 @@ export default async function HrdLayout({
         {/* Mobile Nav */}
         <nav className="md:hidden flex overflow-x-auto bg-slate-900 border-b border-white/5 shrink-0 px-2 hide-scrollbar">
           <Link href="/hrd/dashboard" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-slate-300">Dashboard</Link>
+          {isInternHrd && (
+            <>
+              <Link href="/hrd/my-attendance" className="flex-shrink-0 px-3 py-3 text-xs font-semibold text-emerald-400">Absen Harian</Link>
+              <Link href="/hrd/my-face" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-cyan-400">Data Wajah</Link>
+            </>
+          )}
           <Link href="/hrd/attendance-recap" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-slate-300">Rekap Absensi</Link>
           {isManager && (
-            <Link href="/hrd/attendance-history" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-orange-400">Riwayat Absen</Link>
-          )}
-          <Link href="/hrd/interns" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-slate-300">Anak Magang</Link>
-          {isManager && (
             <>
+              <Link href="/hrd/internship-summary" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-emerald-400">Rekap Penilaian</Link>
+              <Link href="/hrd/attendance-history" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-orange-400">Riwayat Absen</Link>
+              <Link href="/hrd/interns" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-slate-300">Anak Magang</Link>
               <Link href="/hrd/batches" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-slate-300">Batch</Link>
+              <Link href="/hrd/holidays" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-rose-400">Hari Libur</Link>
               <Link href="/hrd/payout" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-slate-300">Uang Saku</Link>
-              <Link href="/hrd/settings" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-slate-300">Pengaturan</Link>
             </>
           )}
           {isSuperAdmin && (
@@ -185,6 +231,8 @@ export default async function HrdLayout({
               <Link href="/hrd/users" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-purple-400">Kelola Akun</Link>
               <Link href="/hrd/departments" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-purple-400">Kelola Divisi</Link>
               <Link href="/hrd/roles" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-purple-400">Kelola Role</Link>
+              <Link href="/hrd/work-hours" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-purple-400">Jam Absen</Link>
+              <Link href="/hrd/settings" className="flex-shrink-0 px-3 py-3 text-xs font-medium text-purple-400">Pengaturan Lokasi</Link>
             </>
           )}
         </nav>

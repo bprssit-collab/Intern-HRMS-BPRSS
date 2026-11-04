@@ -1,15 +1,19 @@
 /**
  * POST /api/attendance/checkout
- * Records a check-out event. Automatically calculates and sets attendance status.
- * Status: >6 hours → full_day, ≤6 hours → half_day
+ * Records a check-out event. Automatically calculates and sets attendance status
+ * based on configurable time boundaries (work_start_time, full_day_max_in, work_end_time):
+ *   - Check-in <= 10:30 WIB AND Check-out >= 16:00 WIB -> full_day ('H')
+ *   - Otherwise -> half_day ('1/2')
+ * Supports weekend/holiday overtime ('HL' / is_overtime).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { requireRole } from '@/lib/auth';
-import { calculateAttendanceStatus } from '@/lib/payout-calc';
+import { calculateAttendanceStatus, toWIBTimeHHMM } from '@/lib/payout-calc';
+import { getWorkHoursConfig, getHolidaysList } from '@/lib/work-config';
 import { INTERN_PORTAL_ROLES } from '@/lib/permissions';
-import { todayISO } from '@/lib/utils';
+import { todayISO, dayOfWeekISO } from '@/lib/utils';
 import { verifyFaceDescriptors } from '@/lib/face-math';
 
 export async function POST(request: NextRequest) {
@@ -64,7 +68,7 @@ export async function POST(request: NextRequest) {
     // Fetch today's check-in record
     const { data: record, error: fetchError } = await supabase
       .from('attendance')
-      .select('id, check_in_time, check_out_time')
+      .select('id, check_in_time, check_out_time, notes')
       .eq('user_id', session.id)
       .eq('date', today)
       .single();
@@ -90,26 +94,67 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate status based on hours worked
-    const status = calculateAttendanceStatus(record.check_in_time, now);
+    // Load configurable work hours from settings (default: 08:30, max full-day in 10:30, end 16:00)
+    const workHours = await getWorkHoursConfig(supabase);
+
+    // Calculate status based on configured time thresholds
+    const status = calculateAttendanceStatus(record.check_in_time, now, workHours);
+    const attendanceCode = status === 'full_day' ? 'H' : '1/2';
+
+    // Check if today is a weekend or registered national holiday (Lembur)
+    const dow = dayOfWeekISO(today);
+    const isWeekend = dow === 0 || dow === 6;
+    const { holidays: todayHolidays } = await getHolidaysList(supabase, {
+      startDate: today,
+      endDate: today,
+    });
+    const isHoliday = todayHolidays.length > 0;
+    const isOvertimeDay = isWeekend || isHoliday;
 
     // Update record with checkout time and computed status
-    const { data: updated, error: updateError } = await supabase
+    let updateRes = await supabase
       .from('attendance')
       .update({
         check_out_time: now,
         status,
+        attendance_status: isOvertimeDay ? 'HL' : attendanceCode,
+        ...(isOvertimeDay ? { is_overtime: true } : {}),
       })
       .eq('id', record.id)
       .select()
       .single();
 
-    if (updateError) throw updateError;
+    if (updateRes.error) {
+      // Fallback if migration_v6 columns/constraint ('HL', 'is_overtime') are not yet applied in Supabase
+      updateRes = await supabase
+        .from('attendance')
+        .update({
+          check_out_time: now,
+          status,
+          attendance_status: attendanceCode,
+          ...(isOvertimeDay && (!record.notes || !record.notes.includes('[LEMBUR]'))
+            ? { notes: `[LEMBUR] ${record.notes || 'Hadir di hari libur/akhir pekan'}`.trim() }
+            : {}),
+        })
+        .eq('id', record.id)
+        .select()
+        .single();
+    }
+
+    if (updateRes.error) throw updateRes.error;
+    const updated = updateRes.data;
+
+    const inWIB = toWIBTimeHHMM(record.check_in_time);
+    const outWIB = toWIBTimeHHMM(now);
 
     return NextResponse.json({
       success: true,
       data: updated,
-      message: `Absen keluar berhasil. Status hari ini: ${status === 'full_day' ? 'Penuh' : 'Setengah'}.`,
+      message: isOvertimeDay
+        ? `Absen keluar (Lembur) berhasil (${inWIB} - ${outWIB} WIB). Menunggu verifikasi HRD.`
+        : `Absen keluar berhasil (${inWIB} - ${outWIB} WIB). Status hari ini: ${
+            status === 'full_day' ? 'Satu Hari Penuh (Full Day)' : 'Setengah Hari (Half Day)'
+          }.`,
     });
 
   } catch (error) {

@@ -9,10 +9,10 @@
 | Atribut Dokumen | Rincian |
 |---|---|
 | **Judul Dokumen** | Dokumen Spesifikasi Kasus Uji Penerimaan Pengguna (User Acceptance Testing - UAT) |
-| **Nomor Dokumen** | UAT-HRMS-BPRSS-2026-V1.0 |
+| **Nomor Dokumen** | UAT-HRMS-BPRSS-2026-V1.1 |
 | **Nama Proyek** | Intern HRMS (Human Resource Management System) PT BPR Sehat Sejahtera |
-| **Tanggal Terbit** | 22 Oktober 2026 |
-| **Versi Dokumen** | 1.0 (Final Pre-Release) |
+| **Tanggal Terbit** | 04 November 2026 |
+| **Versi Dokumen** | 1.1 (Updated Release v4) |
 | **Pemilik Proyek** | Divisi Sumber Daya Manusia (SDM) / HRD & Divisi Teknologi Informasi (IT) |
 | **Entitas Perusahaan** | PT BPR Sehat Sejahtera |
 
@@ -22,6 +22,7 @@
 | 0.1 | 15 Okt 2026 | Tim Pengembang | Draf awal skenario modul absensi & rekap |
 | 0.5 | 20 Okt 2026 | Tim Pengembang | Pembaruan RBAC, Manajemen Divisi, Manajemen Role, dan Bulk Generator |
 | 1.0 | 22 Okt 2026 | Tim Pengembang & QA | Dokumen lengkap menyeluruh siap eksekusi (Multi-tab session, validasi kredensial ketat, geofencing, face recognition) |
+| 1.1 | 04 Nov 2026 | Tim Pengembang & QA | Pembaruan v4: Password default `internBSS`, menu absen & pembatasan `intern_hrd`, Rekap Penilaian Magang (Total Hari & Jam), Hari Libur Nasional & Cuti Bersama, Pengaturan Jam Absen (`08:30`/`10:30`/`16:00`), Lembur (`HL` Rp 50.000), serta Pengaturan Lokasi khusus Super Admin |
 
 ---
 
@@ -106,9 +107,10 @@ Sistem dinyatakan lulus UAT jika:
 ### 4.3 Akun Pengguna Uji (*Test User Accounts*)
 | Role / Peran | Username Uji | Password Default / Uji | Tujuan Pengujian |
 |---|---|---|---|
-| **Super Admin** | `superadmin` | *Password Admin* | Pengujian hak akses administrator penuh |
-| **Kepala HRD** | `kepala.hrd` | *Password HRD* | Pengujian pemantauan rekap & uang saku |
-| **Intern (Baru/Default)** | `valdis.sandya` | `magang2026` | Pengujian aktivasi akun pertama kali & validasi ganti kredensial |
+| **Super Admin** | `superadmin` | *Password Admin* | Pengujian hak akses administrator penuh (termasuk Pengaturan Jam Absen & Lokasi) |
+| **Kepala HRD** | `kepala.hrd` | *Password HRD* | Pengujian pemantauan rekap, penilaian magang, hari libur, & uang saku |
+| **Intern HRD (SDM)** | `feli` | *Password Intern HRD* | Pengujian absensi pribadi di portal HRD & pembatasan menu Data Anak Magang |
+| **Intern (Baru/Default)** | `valdis.sandya` | `internBSS` | Pengujian aktivasi akun pertama kali & validasi ganti kredensial default |
 | **Intern (Aktif)** | `eki.ramdani` | *Password Aktif* | Pengujian presensi harian, wajah, dan riwayat |
 
 ---
@@ -132,9 +134,9 @@ Sistem dinyatakan lulus UAT jika:
 
 | ID Kasus Uji | Skenario Pengujian | Langkah Pengujian | Hasil yang Diharapkan | Prioritas | Status |
 |---|---|---|---|---|---|
-| **TC-ACT-01** | Tampilan Modal Wajib Aktivasi Akun | 1. Login menggunakan akun magang baru dengan kredensial default (`valdis.sandya` / `magang2026`).<br>2. Masuk ke dashboard intern. | Muncul modal popup "Aktivasi Akun Magang" berlabel "WAJIB" yang memblokir akses ke fitur lain hingga kredensial diperbarui. Badge username bawaan ditampilkan. | Critical | [ ] PASS<br>[ ] FAIL |
+| **TC-ACT-01** | Tampilan Modal Wajib Aktivasi Akun | 1. Login menggunakan akun magang baru dengan kredensial default (`valdis.sandya` / `internBSS`).<br>2. Masuk ke dashboard intern. | Muncul modal popup "Aktivasi Akun Magang" berlabel "WAJIB" yang memblokir akses ke fitur lain hingga kredensial diperbarui. Badge username bawaan ditampilkan. | Critical | [ ] PASS<br>[ ] FAIL |
 | **TC-ACT-02** | Penolakan Jika Username Tidak Diubah (Masih Bawaan) | 1. Pada modal aktivasi, biarkan atau ketik username yang persis sama dengan username bawaan saat ini (`valdis.sandya`).<br>2. Masukkan password baru unik & konfirmasi cocok.<br>3. Klik "Simpan & Lanjutkan". | Sistem menolak dengan pesan error: "Username baru tidak boleh sama dengan username bawaan...". Data tidak tersimpan. | Critical | [ ] PASS<br>[ ] FAIL |
-| **TC-ACT-03** | Penolakan Password Default (`magang2026`) | 1. Masukkan username baru yang valid.<br>2. Pada field Password Baru, masukkan `magang2026`.<br>3. Konfirmasi password `magang2026`.<br>4. Klik "Simpan & Lanjutkan". | Sistem menolak dengan pesan error: "Password baru tidak boleh menggunakan password default (magang2026)...". | Critical | [ ] PASS<br>[ ] FAIL |
+| **TC-ACT-03** | Penolakan Password Default (`internBSS`) | 1. Masukkan username baru yang valid.<br>2. Pada field Password Baru, masukkan `internBSS` (atau `magang2026`).<br>3. Konfirmasi password yang sama.<br>4. Klik "Simpan & Lanjutkan". | Sistem menolak dengan pesan error: "Password baru tidak boleh menggunakan password default (`internBSS`)...". | Critical | [ ] PASS<br>[ ] FAIL |
 | **TC-ACT-04** | Penolakan Username dan Password Sama Persis | 1. Masukkan username baru: `valdis_baru`.<br>2. Masukkan password baru: `valdis_baru`.<br>3. Konfirmasi password: `valdis_baru`.<br>4. Klik "Simpan & Lanjutkan". | Sistem menolak dengan pesan: "Username dan password tidak boleh sama demi alasan keamanan akun." | Critical | [ ] PASS<br>[ ] FAIL |
 | **TC-ACT-05** | Penolakan Duplikasi Username | 1. Masukkan username baru yang sudah dimiliki pengguna lain (misal: `superadmin` atau `eki.ramdani`).<br>2. Masukkan password baru aman.<br>3. Klik "Simpan & Lanjutkan". | Sistem menolak dengan pesan error: "Username sudah terpakai oleh pengguna lain, silakan gunakan username yang berbeda." | High | [ ] PASS<br>[ ] FAIL |
 | **TC-ACT-06** | Penyimpanan Sukses Kredensial Baru | 1. Masukkan username baru yang unik (contoh: `valdis.akbar`).<br>2. Masukkan password baru yang kuat minimal 6 karakter (contoh: `BprSehat#2026`).<br>3. Masukkan konfirmasi password yang cocok.<br>4. Klik "Simpan & Lanjutkan". | Tampil notifikasi sukses "Kredensial Berhasil Diperbarui!". Halaman memuat ulang, modal hilang, flag `must_change_credentials` menjadi `false`, dan sesi baru langsung aktif. | Critical | [ ] PASS<br>[ ] FAIL |
@@ -151,20 +153,23 @@ Sistem dinyatakan lulus UAT jika:
 | **TC-ATT-02** | Penolakan Check-in di Luar Radius Kantor (Geofencing) | 1. Berada di lokasi luar kantor (> radius toleransi yang ditentukan, misal 500 meter).<br>2. Coba lakukan "Check-in Masuk". | Sistem menolak absensi dengan pesan peringatan: "Anda berada di luar radius kantor ([jarak] meter dari lokasi kantor). Absensi ditolak." | Critical | [ ] PASS<br>[ ] FAIL |
 | **TC-ATT-03** | Penolakan Check-in Jika Wajah Tidak Cocok | 1. Akun A login di smartphone.<br>2. Saat scan check-in, hadapkan wajah orang lain B (bukan pemilik akun).<br>3. Klik "Check-in Masuk". | Sistem menolak presensi dengan pesan error kecocokan wajah: "Verifikasi wajah gagal. Wajah tidak cocok dengan data pendaftaran." | Critical | [ ] PASS<br>[ ] FAIL |
 | **TC-ATT-04** | Pencegahan *Double Check-in* | 1. Setelah berhasil check-in hari ini, coba lakukan klik check-in kembali. | Tombol Check-in dinonaktifkan / sistem menampilkan info bahwa pengguna sudah melakukan check-in hari ini. | High | [ ] PASS<br>[ ] FAIL |
-| **TC-ATT-05** | Check-out Pulang Berhasil | 1. Pada sore hari, buka kembali menu "Absen Harian".<br>2. Posisikan wajah dan pastikan dalam radius kantor.<br>3. Klik tombol "Check-out Pulang". | Waktu pulang tercatat dengan sukses. Status kartu absensi hari ini berubah menjadi lengkap (Check-in & Check-out terisi). | High | [ ] PASS<br>[ ] FAIL |
+| **TC-ATT-05** | Check-out Pulang & Perhitungan Full Day vs Half Day | 1. Lakukan Check-out pulang.<br>2. Uji skenario jam:<br>- Masuk &le; 10:30 & Pulang &ge; 16:00 (misal 08:15–16:00)<br>- Masuk &le; 10:30 & Pulang &lt; 16:00 (misal 08:30–12:30)<br>- Masuk &gt; 10:30 (misal 11:00–16:10 atau 13:00–16:20) | Sistem menghitung status otomatis sesuai Pengaturan Jam Absen:<br>- 08:15–16:00 &rarr; **Full Day (`H`)**<br>- 08:30–12:30 &rarr; **Half Day (`1/2`)**<br>- 11:00–16:10 & 13:00–16:20 &rarr; **Half Day (`1/2`)**. | Critical | [ ] PASS<br>[ ] FAIL |
 | **TC-ATT-06** | Penolakan Check-out Tanpa Check-in | 1. Gunakan akun yang belum pernah check-in pada hari berjalan.<br>2. Coba eksekusi aksi check-out. | Sistem menampilkan pesan error bahwa pengguna belum melakukan absensi masuk hari ini. | High | [ ] PASS<br>[ ] FAIL |
 | **TC-ATT-07** | Riwayat Presensi Pribadi | 1. Buka dashboard intern.<br>2. Periksa tabel riwayat absensi. | Menampilkan catatan tanggal, jam masuk, jam pulang, dan status kehadiran dalam format tanggal Indonesia `hh/bb/tttt` secara urut. | Medium | [ ] PASS<br>[ ] FAIL |
+| **TC-ATT-08** | Menu Absen Harian & Pembatasan Akses pada Role `intern_hrd` | 1. Login menggunakan akun `intern_hrd` (`feli`).<br>2. Periksa sidebar dan Dashboard HRD.<br>3. Coba akses `/hrd/my-attendance`, `/hrd/my-face`, dan `/hrd/interns`. | Pada `intern_hrd` tampil kartu Status Absensi Saya Hari Ini serta menu **Absen Harian** & **Data Wajah**. Menu **Data Anak Magang** (`/hrd/interns`) disembunyikan dan ditolak (redirect ke `/hrd/dashboard`). | Critical | [ ] PASS<br>[ ] FAIL |
 
 ---
 
-### MODUL 4: MANAJEMEN ABSENSI & REKAPITULASI (HRD PORTAL)
+### MODUL 4: MANAJEMEN ABSENSI, HARI LIBUR & REKAP PENILAIAN (HRD PORTAL)
 
 | ID Kasus Uji | Skenario Pengujian | Langkah Pengujian | Hasil yang Diharapkan | Prioritas | Status |
 |---|---|---|---|---|---|
 | **TC-REKAP-01** | Tampilan Dashboard HRD Realtime | 1. Login sebagai HRD.<br>2. Buka `/hrd/dashboard`. | Menampilkan kartu metrik: Total Intern terdaftar, Total Hadir Hari Ini, Total Masa Perbantuan, dan Identitas Batch Aktif. | High | [ ] PASS<br>[ ] FAIL |
-| **TC-REKAP-02** | Rekap Absensi Matriks Spreadsheet | 1. Buka menu "Rekap Absensi" (`/hrd/attendance-recap`).<br>2. Pilih filter Bulan & Tahun berjalan.<br>3. Pilih Bagian/Divisi. | Tampil tabel matriks absensi resmi sesuai standar: kolom tanggal 1 s/d 31, kolom hari Sabtu & Minggu (weekend) bertanda khusus warna kuning, kode kehadiran (H, T, I, S, A, 1/2), dan total ringkasan di kolom akhir. | Critical | [ ] PASS<br>[ ] FAIL |
+| **TC-REKAP-02** | Rekap Absensi Matriks Spreadsheet & Lembur (`HL`) | 1. Buka menu "Rekap Absensi" (`/hrd/attendance-recap`).<br>2. Pilih filter rentang tanggal.<br>3. Periksa penanda warna Akhir Pekan (kuning), Hari Libur Nasional (merah muda/rose), dan kode kehadiran (`H`, `1/2`, `HL`, `I`, `S`, `A`). | Tampil tabel matriks absensi resmi lengkap dengan penanda Hari Libur Nasional & Cuti Bersama, serta dukungan verifikasi **Hadir Lembur (`HL`)** pada hari Sabtu/Libur oleh HRD. | Critical | [ ] PASS<br>[ ] FAIL |
 | **TC-REKAP-03** | Riwayat Absensi Lengkap | 1. Buka menu "Riwayat Absensi" (`/hrd/attendance-history`).<br>2. Terapkan filter berdasarkan tanggal atau nama anak magang. | Tabel menampilkan rincian log presensi lengkap: Nama, Divisi, Waktu Check-in, Waktu Check-out, Koordinat Lokasi, dan Status. | Medium | [ ] PASS<br>[ ] FAIL |
 | **TC-REKAP-04** | Tombol Reset Absensi Hari Ini (Fitur Uji/Admin) | 1. Pada menu absensi/pengaturan, gunakan fitur reset absensi hari ini untuk anak magang uji coba. | Catatan absensi hari ini ter-reset kembali kosong, sehingga penguji dapat melakukan simulasi check-in ulang tanpa menunggu esok hari. | High | [ ] PASS<br>[ ] FAIL |
+| **TC-REKAP-05** | Rekap Penilaian Magang (Total Hari & Total Jam Hadir) | 1. Login sebagai `staf_hrd`, `kepala_hrd`, atau `super_admin`.<br>2. Buka menu "Rekap Penilaian" (`/hrd/internship-summary`).<br>3. Pilih Batch Magang. | Menampilkan **Hari Kerja Efektif** batch (di luar Sabtu-Minggu & Libur Nasional), **Total Hari Hadir** ($H + 0.5 \times \text{Half}$), **Total Jam Hadir** (akumulasi selisih jam pulang - jam masuk), dan **% Kehadiran** setiap anak magang, serta dapat diekspor ke CSV/PDF. | Critical | [ ] PASS<br>[ ] FAIL |
+| **TC-REKAP-06** | Manajemen Hari Libur Nasional & Cuti Bersama | 1. Login sebagai `super_admin`, `kepala_hrd`, atau `staf_hrd`.<br>2. Buka menu "Hari Libur Nasional" (`/hrd/holidays`).<br>3. Tambah/ubah hari libur nasional atau cuti bersama pada periode batch. | Hari libur tersimpan, otomatis mengurangi jumlah **Hari Kerja Efektif** pada periode batch (jika jatuh di Senin–Jumat), dan menandai kolom tanggal terkait pada Rekap Absensi Matrix. | High | [ ] PASS<br>[ ] FAIL |
 
 ---
 
@@ -182,11 +187,12 @@ Sistem dinyatakan lulus UAT jika:
 
 | ID Kasus Uji | Skenario Pengujian | Langkah Pengujian | Hasil yang Diharapkan | Prioritas | Status |
 |---|---|---|---|---|---|
-| **TC-ADM-01** | Pembuatan Akun Massal (*Bulk Create Interns*) | 1. Buka menu "Manajemen Akun" (`/hrd/users`).<br>2. Klik tombol "Tambah Akun Massal (Bulk)".<br>3. Pilih divisi dari dropdown (contoh: "CS").<br>4. Masukkan nama-nama anak magang (satu nama per baris).<br>5. Klik "Simpan & Buat Akun". | Sistem otomatis men-generate akun untuk setiap nama: username huruf kecil tanpa spasi, password default `magang2026`, role otomatis `intern`, batch otomatis ke batch aktif, status aktif, dan flag ganti password bernilai true. | Critical | [ ] PASS<br>[ ] FAIL |
+| **TC-ADM-01** | Pembuatan Akun Massal (*Bulk Create Interns*) | 1. Buka menu "Manajemen Akun" (`/hrd/users`).<br>2. Klik tombol "Tambah Akun Massal (Bulk)".<br>3. Pilih divisi dari dropdown (contoh: "CS").<br>4. Masukkan nama-nama anak magang (satu nama per baris).<br>5. Klik "Simpan & Buat Akun". | Sistem otomatis men-generate akun untuk setiap nama: username huruf kecil tanpa spasi, password default `internBSS`, role otomatis `intern`, batch otomatis ke batch aktif, status aktif, dan flag ganti password bernilai true. | Critical | [ ] PASS<br>[ ] FAIL |
 | **TC-ADM-02** | Manajemen Divisi / Bagian Dinamis | 1. Buka menu "Manajemen Divisi" (`/hrd/departments`).<br>2. Tambah divisi baru (contoh: "Operasional Kas", Kode: "OPS").<br>3. Simpan data.<br>4. Buka kembali form pembuatan akun massal atau dropdown filter absensi. | Divisi baru muncul di daftar tabel divisi dan langsung tersedia secara dinamis pada semua dropdown pilihan divisi di seluruh aplikasi tanpa hardcode. | Critical | [ ] PASS<br>[ ] FAIL |
 | **TC-ADM-03** | Manajemen Role & Hak Akses | 1. Buka menu "Manajemen Role" (`/hrd/roles`).<br>2. Periksa matriks hak akses untuk `super_admin`, `kepala_hrd`, `staf_hrd`, `intern_hrd`, dan `intern`. | Matriks perizinan modul (lihat, tambah, edit, hapus, rekap) ditampilkan jelas dan mencerminkan batasan akses riil tiap peran. | High | [ ] PASS<br>[ ] FAIL |
-| **TC-ADM-04** | Pengaturan Lokasi & Radius Geofencing | 1. Buka menu "Pengaturan Lokasi" (`/hrd/settings`).<br>2. Perbarui titik koordinat kantor (Latitude, Longitude) dan batas radius toleransi (contoh: 50 meter).<br>3. Simpan perubahan. | Pengaturan berhasil diperbarui. Validasi absensi pada modul intern langsung mengadopsi titik koordinat dan jarak radius baru tersebut. | Critical | [ ] PASS<br>[ ] FAIL |
+| **TC-ADM-04** | Pengaturan Lokasi & Radius Geofencing (Khusus Super Admin) | 1. Buka menu "Pengaturan Lokasi" (`/hrd/settings`) sebagai `super_admin`.<br>2. Perbarui titik koordinat kantor (Latitude, Longitude) dan batas radius toleransi.<br>3. Uji akses `/hrd/settings` menggunakan akun selain `super_admin` (`kepala_hrd`/`staf_hrd`). | Pengaturan berhasil diperbarui oleh `super_admin`. Menu Pengaturan Lokasi tidak muncul pada role selain `super_admin` dan akses langsung ke `/hrd/settings` ditolak/di-redirect. | Critical | [ ] PASS<br>[ ] FAIL |
 | **TC-ADM-05** | Reset Data Wajah Pengguna | 1. Di menu Manajemen Akun atau Data Anak Magang, pilih seorang anak magang yang ingin foto wajahnya diulang.<br>2. Klik tombol "Reset Wajah". | Data vektor wajah anak magang tersebut dihapus. Saat anak magang login, sistem memintanya melakukan pendaftaran foto wajah kembali. | High | [ ] PASS<br>[ ] FAIL |
+| **TC-ADM-06** | Pengaturan Periode Jam Absen (Khusus Super Admin) | 1. Login sebagai `super_admin` dan buka menu "Pengaturan Jam Absen" (`/hrd/work-hours`).<br>2. Atur Jam Masuk Standar (`08:30`), Batas Maksimal Masuk Full Day (`10:30`), dan Batas Minimal Jam Pulang (`16:00`).<br>3. Simpan dan uji simulasi perhitungan. | Pengaturan jam absen tersimpan. Hanya `super_admin` yang dapat mengakses halaman `/hrd/work-hours` dan mengubah batas jam Full Day vs Half Day. | Critical | [ ] PASS<br>[ ] FAIL |
 
 ---
 
@@ -196,7 +202,7 @@ Sistem dinyatakan lulus UAT jika:
 |---|---|---|---|---|---|
 | **TC-FIN-01** | Rentang Default 1 Bulan Berjalan | 1. Buka menu "Rekap Uang Saku" (`/hrd/payout`).<br>2. Periksa picker tanggal yang tampil default saat halaman pertama kali dimuat. | Filter tanggal secara otomatis terisi rentang 1 bulan penuh berdasarkan tanggal hari ini (contoh: 01/10/2026 s/d 31/10/2026). Tombol kalender bulan tampil tunggal dan rapi. | High | [ ] PASS<br>[ ] FAIL |
 | **TC-FIN-02** | Akurasi Perhitungan Uang Saku Reguler | 1. Periksa baris anak magang reguler yang memiliki riwayat 20 hari kehadiran.<br>2. Verifikasi perkalian dengan tarif harian reguler. | Nilai total uang saku terhitung tepat: `Total Hadir x Tarif Reguler`, berformat Rupiah (`Rp xxx.xxx`), dan tanggal berformat Indonesia (`hh/bb/tttt`). | Critical | [ ] PASS<br>[ ] FAIL |
-| **TC-FIN-03** | Akurasi Perhitungan Uang Saku Masa Perbantuan | 1. Periksa anak magang yang berstatus "Masa Perbantuan".<br>2. Verifikasi perhitungan uang saku. | Sistem secara otomatis mengalikan jumlah kehadiran dengan tarif khusus masa perbantuan yang telah ditetapkan di pengaturan batch. | Critical | [ ] PASS<br>[ ] FAIL |
+| **TC-FIN-03** | Akurasi Perhitungan Uang Saku Masa Perbantuan & Lembur (`HL`) | 1. Periksa anak magang yang berstatus "Masa Perbantuan" atau memiliki hari Lembur Sabtu/Libur (`HL`).<br>2. Verifikasi perhitungan uang saku. | Sistem mengalikan kehadiran perbantuan dengan tarif perbantuan serta kehadiran Lembur (`HL`) dengan tarif lembur batch (default **Rp 50.000**/hari). | Critical | [ ] PASS<br>[ ] FAIL |
 
 ---
 
@@ -217,7 +223,7 @@ Gunakan tabel ini untuk mencatat setiap kendala, kegagalan uji (*FAIL*), atau te
 ## 7. KRITERIA KEPUTUSAN & PERSETUJUAN AKHIR (*UAT SIGN-OFF*)
 
 ### 7.1 Hasil Rekapitulasi Pengujian
-* Total Kasus Uji : **28 Kasus Uji**
+* Total Kasus Uji : **32 Kasus Uji**
 * Jumlah Kasus Uji Lolos (*PASS*) : _____
 * Jumlah Kasus Uji Gagal (*FAIL*) : _____
 * Persentase Kelulusan : _____%

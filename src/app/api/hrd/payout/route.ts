@@ -13,6 +13,8 @@ import { createAdminClient } from '@/lib/supabase';
 import { requireRole } from '@/lib/auth';
 import { MANAGER_ROLES, ATTENDEE_ROLES } from '@/lib/permissions';
 import { calculatePayouts, type PayoutRates } from '@/lib/payout-calc';
+import { DEFAULT_OVERTIME_RATE } from '@/lib/constants';
+import { getBatchOvertimeRateMap } from '@/lib/work-config';
 import type { User, Attendance, Batch } from '@/types';
 
 /** Rates used only when an intern has no batch and there is no active batch either. */
@@ -21,14 +23,19 @@ const FALLBACK_RATES: PayoutRates = {
   half: 10000,
   perbantuanFull: 50000,
   perbantuanHalf: 25000,
+  overtime: DEFAULT_OVERTIME_RATE,
 };
 
-function batchToRates(batch: Batch): PayoutRates {
+function batchToRates(batch: Batch, overtimeMap: Record<string, number>): PayoutRates {
   return {
     full: batch.full_day_rate,
     half: batch.half_day_rate,
     perbantuanFull: batch.perbantuan_full_day_rate,
     perbantuanHalf: batch.perbantuan_half_day_rate,
+    overtime:
+      typeof batch.overtime_rate === 'number'
+        ? batch.overtime_rate
+        : overtimeMap[batch.id] ?? DEFAULT_OVERTIME_RATE,
   };
 }
 
@@ -82,8 +89,9 @@ export async function GET(request: NextRequest) {
     if (batchError) throw batchError;
 
     const batches = (batchRows as Batch[]) ?? [];
+    const overtimeMap = await getBatchOvertimeRateMap(supabase);
     const activeBatch = batches.find((b) => b.is_active) ?? batches[0];
-    const fallbackRates = activeBatch ? batchToRates(activeBatch) : FALLBACK_RATES;
+    const fallbackRates = activeBatch ? batchToRates(activeBatch, overtimeMap) : FALLBACK_RATES;
     const batchById = new Map<string, Batch>(batches.map((b) => [b.id, b]));
 
     // Build user lookup + per-user rate maps
@@ -92,7 +100,7 @@ export async function GET(request: NextRequest) {
     for (const user of (internUsers ?? []) as (User & { batch_id?: string })[]) {
       userMap.set(user.id, user as User);
       const batch = user.batch_id ? batchById.get(user.batch_id) : undefined;
-      ratesByUser.set(user.id, batch ? batchToRates(batch) : fallbackRates);
+      ratesByUser.set(user.id, batch ? batchToRates(batch, overtimeMap) : fallbackRates);
     }
 
     // Calculate payouts
@@ -103,7 +111,8 @@ export async function GET(request: NextRequest) {
       fallbackRates.half,
       fallbackRates.perbantuanFull,
       fallbackRates.perbantuanHalf,
-      ratesByUser
+      ratesByUser,
+      fallbackRates.overtime ?? DEFAULT_OVERTIME_RATE
     );
 
     return NextResponse.json({
@@ -116,6 +125,7 @@ export async function GET(request: NextRequest) {
           half_day_rate: fallbackRates.half,
           perbantuan_full_day_rate: fallbackRates.perbantuanFull,
           perbantuan_half_day_rate: fallbackRates.perbantuanHalf,
+          overtime_rate: fallbackRates.overtime ?? DEFAULT_OVERTIME_RATE,
         },
         period: { startDate, endDate },
       },

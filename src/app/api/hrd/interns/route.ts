@@ -1,6 +1,6 @@
 /**
  * /api/hrd/interns
- * HRD-portal endpoint (intern_hrd, staf_hrd, kepala_hrd, super_admin) for viewing and managing
+ * Manager-only endpoint (staf_hrd, kepala_hrd, super_admin) for viewing and managing
  * the intern list, departments, and status (active/perbantuan/completed).
  * Lists accounts with role 'intern' and 'intern_hrd' (both are interns who attend).
  */
@@ -8,18 +8,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { requireRole } from '@/lib/auth';
-import { HRD_PORTAL_ROLES, ATTENDEE_ROLES } from '@/lib/permissions';
+import { MANAGER_ROLES, ATTENDEE_ROLES } from '@/lib/permissions';
+import { DEFAULT_INTERN_PASSWORD } from '@/lib/constants';
 import bcrypt from 'bcryptjs';
 
 const forbidden = () =>
   NextResponse.json(
-    { success: false, error: 'Akses ditolak. Khusus HRD.' },
+    { success: false, error: 'Akses ditolak. Khusus Staf HRD, Kepala HRD, atau Super Admin.' },
     { status: 403 }
   );
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole(HRD_PORTAL_ROLES);
+    const session = await requireRole(MANAGER_ROLES);
     if (!session) return forbidden();
 
     const { searchParams } = new URL(request.url);
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole(HRD_PORTAL_ROLES);
+    const session = await requireRole(MANAGER_ROLES);
     if (!session) return forbidden();
 
     const body = await request.json();
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const passwordHash = await bcrypt.hash(password || 'magang2026', 10);
+    const passwordHash = await bcrypt.hash(password || DEFAULT_INTERN_PASSWORD, 10);
     const userEmail = email ? email.trim().toLowerCase() : `${cleanUsername}@intern.bprsehat.com`;
 
     const { data: newIntern, error } = await supabase
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const session = await requireRole(HRD_PORTAL_ROLES);
+    const session = await requireRole(MANAGER_ROLES);
     if (!session) return forbidden();
 
     const body = await request.json();

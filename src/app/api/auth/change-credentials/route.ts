@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { createAdminClient } from '@/lib/supabase';
 import { getSession, createSessionToken, getSessionCookieOptions } from '@/lib/auth';
+import { DEFAULT_INTERN_PASSWORD, LEGACY_DEFAULT_PASSWORDS } from '@/lib/constants';
 import type { SessionUser } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -64,11 +65,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. New password cannot be the default password
-    if (new_password.toLowerCase() === 'magang2026') {
+    if (LEGACY_DEFAULT_PASSWORDS.includes(new_password.toLowerCase())) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Password baru tidak boleh menggunakan password default (magang2026). Silakan buat password baru yang aman.',
+          error: `Password baru tidak boleh menggunakan password default (${DEFAULT_INTERN_PASSWORD}). Silakan buat password baru yang aman.`,
         },
         { status: 400 }
       );

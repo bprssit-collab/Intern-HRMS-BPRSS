@@ -10,30 +10,73 @@
  */
 
 import type { Attendance, PayoutSummary, User } from '@/types';
+import {
+  DEFAULT_WORK_START_TIME,
+  DEFAULT_FULL_DAY_MAX_IN,
+  DEFAULT_WORK_END_TIME,
+  DEFAULT_OVERTIME_RATE,
+} from './constants';
 
-/** 
- * Minimum hours worked for a day to qualify as "Full Day".
- * Days with less than this are counted as "Half Day".
+/**
+ * Minimum hours worked for a day to qualify as "Full Day" (legacy reference).
  */
 export const FULL_DAY_HOURS_THRESHOLD = 6;
 
+export interface AttendanceTimeRules {
+  work_start_time?: string;   // Default '08:30'
+  full_day_max_in?: string;   // Default '10:30'
+  work_end_time?: string;     // Default '16:00'
+}
+
 /**
- * Determines the attendance status based on hours worked.
- * @param checkInTime - ISO timestamp of check-in
- * @param checkOutTime - ISO timestamp of check-out
- * @returns 'full_day' if hours > 6, 'half_day' otherwise
+ * Extracts 24-hour HH:MM string in Asia/Jakarta (WIB) timezone from an ISO timestamp.
+ * Example: '2026-11-03T01:15:00.000Z' -> '08:15'
+ */
+export function toWIBTimeHHMM(isoTimestamp: string): string {
+  const d = new Date(isoTimestamp);
+  if (isNaN(d.getTime())) return '00:00';
+
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Jakarta',
+  }).formatToParts(d);
+
+  const hour = (parts.find((p) => p.type === 'hour')?.value || '00').padStart(2, '0');
+  const minute = (parts.find((p) => p.type === 'minute')?.value || '00').padStart(2, '0');
+  return `${hour === '24' ? '00' : hour}:${minute}`;
+}
+
+function normalizeHHMM(val: string | undefined, fallback: string): string {
+  if (!val) return fallback;
+  const clean = val.trim().replace('.', ':');
+  const m = clean.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return fallback;
+  return `${m[1].padStart(2, '0')}:${m[2]}`;
+}
+
+/**
+ * Determines the attendance status based on configurable check-in & check-out time boundaries (WIB):
+ * - Check-in <= full_day_max_in (default 10:30) AND Check-out >= work_end_time (default 16:00) -> 'full_day' (H)
+ * - Check-in <= full_day_max_in (default 10:30) AND Check-out < work_end_time (default 16:00)  -> 'half_day' (1/2)
+ * - Check-in > full_day_max_in (default 10:30) (regardless of check-out time)                  -> 'half_day' (1/2)
  */
 export function calculateAttendanceStatus(
   checkInTime: string,
-  checkOutTime: string
+  checkOutTime: string,
+  rules?: AttendanceTimeRules
 ): 'full_day' | 'half_day' {
-  const checkIn = new Date(checkInTime).getTime();
-  const checkOut = new Date(checkOutTime).getTime();
+  const maxIn = normalizeHHMM(rules?.full_day_max_in, DEFAULT_FULL_DAY_MAX_IN);
+  const minOut = normalizeHHMM(rules?.work_end_time, DEFAULT_WORK_END_TIME);
 
-  // Calculate difference in hours
-  const hoursWorked = (checkOut - checkIn) / (1000 * 60 * 60);
+  const checkInWIB = toWIBTimeHHMM(checkInTime);
+  const checkOutWIB = toWIBTimeHHMM(checkOutTime);
 
-  return hoursWorked > FULL_DAY_HOURS_THRESHOLD ? 'full_day' : 'half_day';
+  if (checkInWIB <= maxIn && checkOutWIB >= minOut) {
+    return 'full_day';
+  }
+  return 'half_day';
 }
 
 /** Pocket-money rates (IDR) of one batch. */
@@ -42,6 +85,7 @@ export interface PayoutRates {
   half: number;
   perbantuanFull: number;
   perbantuanHalf: number;
+  overtime?: number;
 }
 
 /**
@@ -64,7 +108,8 @@ export function calculatePayouts(
   halfDayRate: number,
   perbantuanFullDayRate: number = 50000,
   perbantuanHalfDayRate: number = 25000,
-  ratesByUser?: Map<string, PayoutRates>
+  ratesByUser?: Map<string, PayoutRates>,
+  defaultOvertimeRate: number = DEFAULT_OVERTIME_RATE
 ): PayoutSummary[] {
   // Group attendance records by user_id
   const grouped = new Map<
@@ -74,12 +119,18 @@ export function calculatePayouts(
       normalHalf: number;
       perbantuanFull: number;
       perbantuanHalf: number;
+      overtimeDays: number;
     }
   >();
 
   for (const record of attendanceRecords) {
-    // Only count completed check-outs or approved attendance
-    if (!record.status || record.status === 'pending') {
+    const isApprovedOvertime =
+      record.attendance_status === 'HL' ||
+      (record.is_overtime === true && record.overtime_approved === true) ||
+      (typeof record.notes === 'string' && record.notes.includes('[LEMBUR-DISETUJUI]'));
+
+    // Only count completed check-outs or approved attendance / approved overtime
+    if ((!record.status || record.status === 'pending') && !isApprovedOvertime) {
       continue;
     }
 
@@ -89,10 +140,24 @@ export function calculatePayouts(
         normalHalf: 0,
         perbantuanFull: 0,
         perbantuanHalf: 0,
+        overtimeDays: 0,
       });
     }
 
     const counts = grouped.get(record.user_id)!;
+
+    if (isApprovedOvertime) {
+      counts.overtimeDays += 1;
+      continue;
+    }
+
+    // If unapproved overtime on weekend/holiday, do not count into regular weekday payout until approved
+    const isUnapprovedOvertime =
+      record.is_overtime === true && record.overtime_approved !== true;
+    if (isUnapprovedOvertime) {
+      continue;
+    }
+
     const isPerbantuan = record.is_perbantuan === true;
 
     if (record.status === 'full_day') {
@@ -122,13 +187,15 @@ export function calculatePayouts(
     const halfRate = userRates?.half ?? halfDayRate;
     const pFullRate = userRates?.perbantuanFull ?? perbantuanFullDayRate;
     const pHalfRate = userRates?.perbantuanHalf ?? perbantuanHalfDayRate;
+    const otRate = userRates?.overtime ?? defaultOvertimeRate;
 
     const normalAmount =
       counts.normalFull * fullRate + counts.normalHalf * halfRate;
     const perbantuanAmount =
       counts.perbantuanFull * pFullRate +
       counts.perbantuanHalf * pHalfRate;
-    const totalAmount = normalAmount + perbantuanAmount;
+    const overtimeAmount = counts.overtimeDays * otRate;
+    const totalAmount = normalAmount + perbantuanAmount + overtimeAmount;
 
     summaries.push({
       user_id: userId,
@@ -139,12 +206,15 @@ export function calculatePayouts(
       half_day_count: counts.normalHalf,
       perbantuan_full_count: counts.perbantuanFull,
       perbantuan_half_count: counts.perbantuanHalf,
+      overtime_count: counts.overtimeDays,
       normal_amount: normalAmount,
       perbantuan_amount: perbantuanAmount,
+      overtime_amount: overtimeAmount,
       full_day_rate: fullRate,
       half_day_rate: halfRate,
       perbantuan_full_rate: pFullRate,
       perbantuan_half_rate: pHalfRate,
+      overtime_rate: otRate,
       total_amount: totalAmount,
     });
   }

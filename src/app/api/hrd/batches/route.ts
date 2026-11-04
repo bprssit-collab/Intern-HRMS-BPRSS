@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { requireRole } from '@/lib/auth';
 import { MANAGER_ROLES } from '@/lib/permissions';
+import { DEFAULT_OVERTIME_RATE } from '@/lib/constants';
+import { getBatchOvertimeRateMap, saveBatchOvertimeRate } from '@/lib/work-config';
 import type { Batch } from '@/types';
 
 /** Default pocket-money rates (IDR) used when a batch is created without explicit values. */
@@ -15,6 +17,7 @@ const DEFAULT_RATES = {
   half_day_rate: 10000,
   perbantuan_full_day_rate: 50000,
   perbantuan_half_day_rate: 25000,
+  overtime_rate: DEFAULT_OVERTIME_RATE,
 };
 
 export async function GET(request: NextRequest) {
@@ -35,9 +38,18 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
+    const overtimeMap = await getBatchOvertimeRateMap(supabase);
+    const enriched = ((batches as Batch[]) || []).map((b) => ({
+      ...b,
+      overtime_rate:
+        typeof b.overtime_rate === 'number'
+          ? b.overtime_rate
+          : overtimeMap[b.id] ?? DEFAULT_OVERTIME_RATE,
+    }));
+
     return NextResponse.json({
       success: true,
-      data: (batches as Batch[]) || [],
+      data: enriched,
     });
   } catch (error: any) {
     console.error('[/api/hrd/batches GET] Error:', error);
@@ -70,6 +82,7 @@ export async function POST(request: NextRequest) {
       half_day_rate,
       perbantuan_full_day_rate,
       perbantuan_half_day_rate,
+      overtime_rate,
     } = body;
 
     if (!batch_number || !name || !start_date || !end_date) {
@@ -90,6 +103,8 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    const otRate = Number(overtime_rate || DEFAULT_RATES.overtime_rate);
 
     const payload = {
       batch_number: Number(batch_number),
@@ -123,9 +138,13 @@ export async function POST(request: NextRequest) {
 
     if (result.error) throw result.error;
 
+    if (result.data?.id) {
+      await saveBatchOvertimeRate(result.data.id, otRate, supabase);
+    }
+
     return NextResponse.json({
       success: true,
-      data: result.data,
+      data: { ...result.data, overtime_rate: otRate },
       message: id ? 'Data batch berhasil diperbarui.' : 'Batch baru berhasil ditambahkan.',
     });
   } catch (error: any) {

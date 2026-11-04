@@ -175,7 +175,9 @@ export default function AttendanceRecapPage() {
   };
 
   const openEditModal = (userId: string, userName: string, date: string, cell: any) => {
-    const isAttended = Boolean(cell?.has_checked_in || cell?.code === 'H' || cell?.code === '1/2');
+    const isAttended = Boolean(
+      cell?.attended || cell?.has_checked_in || cell?.code === 'H' || cell?.code === '1/2' || cell?.code === 'HL'
+    );
     setEditModal({
       isOpen: true,
       userId,
@@ -462,6 +464,10 @@ export default function AttendanceRecapPage() {
               Setengah Hari
             </span>
             <span className="flex items-center gap-1.5">
+              <span className="w-5 h-5 bg-purple-600 text-white font-bold rounded flex items-center justify-center text-[10px]">HL</span>
+              Hadir Lembur (Sabtu/Libur)
+            </span>
+            <span className="flex items-center gap-1.5">
               <span className="w-5 h-5 bg-sky-400 text-slate-950 font-bold rounded flex items-center justify-center text-[10px]">I</span>
               Izin
             </span>
@@ -475,10 +481,14 @@ export default function AttendanceRecapPage() {
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-5 h-5 bg-amber-300/90 rounded border border-amber-400"></span>
-              Akhir Pekan / Libur
+              Akhir Pekan (Sabtu/Minggu)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 h-5 bg-rose-500/40 rounded border border-rose-400"></span>
+              Libur Nasional / Cuti Bersama
             </span>
             <span className="text-slate-500 italic ml-auto">
-              * Klik pada sel tanggal untuk mengubah status kehadiran atau menambah catatan.
+              * Klik pada sel tanggal untuk mengubah status kehadiran, verifikasi lembur (HL), atau menambah catatan.
             </span>
           </div>
         </div>
@@ -567,8 +577,11 @@ export default function AttendanceRecapPage() {
                   {data.dateList.map((d) => (
                     <th
                       key={d.date}
+                      title={d.is_holiday ? `Hari Libur: ${d.holiday_name}` : `${d.dayName}, ${d.date}`}
                       className={`border border-slate-700 print:border-black px-1.5 py-1.5 font-semibold min-w-[34px] ${
-                        d.is_weekend
+                        d.is_holiday
+                          ? 'bg-rose-500/40 text-rose-100 print:bg-rose-200 print:text-black'
+                          : d.is_weekend
                           ? 'bg-amber-300/90 text-slate-950 print:bg-yellow-300'
                           : 'bg-slate-800 print:bg-slate-100 text-slate-200 print:text-black'
                       }`}
@@ -629,31 +642,34 @@ export default function AttendanceRecapPage() {
                         {data.dateList.map((d) => {
                           const cell = row.cells[d.date];
                           const code = cell?.code;
-
-                          if (d.is_weekend) {
-                            return (
-                              <td
-                                key={d.date}
-                                className="border border-slate-700 print:border-black p-0 bg-amber-300/80 print:bg-yellow-300 text-slate-900"
-                              >
-                                {/* Yellow weekend column */}
-                              </td>
-                            );
-                          }
+                          const isHolidayOrWeekend = d.is_weekend || d.is_holiday;
 
                           return (
                             <td
                               key={d.date}
                               onClick={() => openEditModal(row.user_id, row.name, d.date, cell)}
-                              className="border border-slate-700 print:border-black p-0 cursor-pointer hover:bg-white/10 transition-colors select-none font-bold text-xs"
-                              title={`${row.name} (${d.date}): ${code || 'Belum ada data'}. Klik untuk ubah.`}
+                              className={`border border-slate-700 print:border-black p-0 cursor-pointer transition-colors select-none font-bold text-xs ${
+                                d.is_holiday
+                                  ? 'bg-rose-500/20 hover:bg-rose-500/30 print:bg-rose-100 text-rose-200'
+                                  : d.is_weekend
+                                  ? 'bg-amber-300/80 hover:bg-amber-300 print:bg-yellow-300 text-slate-900'
+                                  : 'hover:bg-white/10'
+                              }`}
+                              title={`${row.name} (${d.date}${d.is_holiday ? ` - ${d.holiday_name}` : ''}): ${
+                                code || (d.is_holiday ? 'Libur Nasional' : d.is_weekend ? 'Akhir Pekan' : 'Belum ada data')
+                              }. Klik untuk ubah / verifikasi lembur.`}
                             >
                               {code === 'H' && (
-                                <span className="inline-block w-full py-1.5 text-white font-extrabold">H</span>
+                                <span className="inline-block w-full py-1.5 text-white font-extrabold print:text-black">H</span>
                               )}
                               {code === '1/2' && (
                                 <span className="inline-block w-full py-1.5 bg-emerald-600/90 text-white font-extrabold print:bg-emerald-300 print:text-black">
                                   1/2
+                                </span>
+                              )}
+                              {code === 'HL' && (
+                                <span className="inline-block w-full py-1.5 bg-purple-600 text-white font-extrabold print:bg-purple-300 print:text-black">
+                                  HL
                                 </span>
                               )}
                               {code === 'I' && (
@@ -671,7 +687,9 @@ export default function AttendanceRecapPage() {
                                   A
                                 </span>
                               )}
-                              {!code && <span className="text-slate-600 print:text-slate-300">-</span>}
+                              {!code && !isHolidayOrWeekend && (
+                                <span className="text-slate-600 print:text-slate-300">-</span>
+                              )}
                             </td>
                           );
                         })}
@@ -790,10 +808,11 @@ export default function AttendanceRecapPage() {
                     <label className="text-xs font-semibold text-slate-300 block mb-2">
                       Pilih Kode Kehadiran
                     </label>
-                    <div className="grid grid-cols-5 gap-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                       {[
                         { code: 'H', label: 'Hadir', bg: 'bg-white text-slate-950 font-bold' },
                         { code: '1/2', label: '1/2 Hari', bg: 'bg-emerald-600 text-white font-bold' },
+                        { code: 'HL', label: 'Lembur', bg: 'bg-purple-600 text-white font-bold' },
                         { code: 'I', label: 'Izin', bg: 'bg-sky-400 text-slate-950 font-bold' },
                         { code: 'S', label: 'Sakit', bg: 'bg-amber-400 text-slate-950 font-bold' },
                         { code: 'A', label: 'Alpa', bg: 'bg-red-600 text-white font-bold' },

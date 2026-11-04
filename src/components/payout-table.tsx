@@ -16,6 +16,7 @@ interface PayoutTableProps {
     half_day_rate: number;
     perbantuan_full_day_rate?: number;
     perbantuan_half_day_rate?: number;
+    overtime_rate?: number;
   };
 }
 
@@ -84,7 +85,8 @@ export function PayoutTable({ data, period, settings }: PayoutTableProps) {
         {/* Rates Guide Note */}
         <div className="mb-4 text-xs text-gray-600 bg-gray-50 p-3 rounded border border-gray-200 flex flex-wrap justify-between gap-2">
           <span>Tarif Normal (Batch Aktif): Full Day <strong>{formatIDR(settings.full_day_rate)}</strong> &bull; Half Day <strong>{formatIDR(settings.half_day_rate)}</strong></span>
-          <span>Tarif Perbantuan (Batch Aktif): Full Day <strong>{formatIDR(settings.perbantuan_full_day_rate || 50000)}</strong> &bull; Half Day <strong>{formatIDR(settings.perbantuan_half_day_rate || 25000)}</strong></span>
+          <span>Tarif Perbantuan: Full Day <strong>{formatIDR(settings.perbantuan_full_day_rate || 50000)}</strong> &bull; Half Day <strong>{formatIDR(settings.perbantuan_half_day_rate || 25000)}</strong></span>
+          <span>Tarif Lembur Sabtu/Libur (HL): <strong>{formatIDR(settings.overtime_rate || 50000)}</strong>/hari</span>
           <span className="w-full text-[11px] text-gray-500">Nominal tiap anak magang mengikuti tarif batch masing-masing (Manajemen Batch).</span>
         </div>
 
@@ -95,6 +97,7 @@ export function PayoutTable({ data, period, settings }: PayoutTableProps) {
               <th className="p-3 font-semibold text-gray-700">Nama Intern & Bagian</th>
               <th className="p-3 font-semibold text-gray-700 text-center">Kehadiran Reguler</th>
               <th className="p-3 font-semibold text-gray-700 text-center">Kehadiran Perbantuan</th>
+              <th className="p-3 font-semibold text-gray-700 text-center">Lembur (HL)</th>
               <th className="p-3 font-semibold text-gray-700 text-right">Total Uang Saku</th>
             </tr>
           </thead>
@@ -136,6 +139,20 @@ export function PayoutTable({ data, period, settings }: PayoutTableProps) {
                     <span className="text-gray-400 text-xs">-</span>
                   )}
                 </td>
+                <td className="p-3 border-b border-gray-200 text-center">
+                  {row.overtime_count ? (
+                    <div>
+                      <div className="text-xs text-purple-700 font-semibold">
+                        <strong>{row.overtime_count}</strong> hari
+                      </div>
+                      <div className="text-[11px] text-purple-600 font-mono mt-0.5">
+                        Subtotal: {formatIDR(row.overtime_amount || 0)}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 text-xs">-</span>
+                  )}
+                </td>
                 <td className="p-3 border-b border-gray-200 text-right font-bold text-gray-900 text-sm">
                   {formatIDR(row.total_amount)}
                 </td>
@@ -144,7 +161,7 @@ export function PayoutTable({ data, period, settings }: PayoutTableProps) {
           </tbody>
           <tfoot>
             <tr className="bg-gray-100 border-y-2 border-gray-400">
-              <td colSpan={3} className="p-3 text-right font-bold text-gray-800">Total Keseluruhan Uang Saku:</td>
+              <td colSpan={4} className="p-3 text-right font-bold text-gray-800">Total Keseluruhan Uang Saku:</td>
               <td className="p-3 text-right font-bold text-gray-900 text-base">{formatIDR(totalAmount)}</td>
             </tr>
           </tfoot>

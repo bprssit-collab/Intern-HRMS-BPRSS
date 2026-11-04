@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { createAdminClient } from '@/lib/supabase';
 import { requireRole } from '@/lib/auth';
+import { DEFAULT_INTERN_PASSWORD } from '@/lib/constants';
 
 /** Helper to generate a clean base username from full name */
 function generateBaseUsername(name: string): string {
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Process each intern
-    const DEFAULT_PASSWORD = 'magang2026';
+    const DEFAULT_PASSWORD = DEFAULT_INTERN_PASSWORD;
     const defaultPasswordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
 
     const createdRecords: any[] = [];

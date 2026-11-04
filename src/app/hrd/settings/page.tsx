@@ -14,7 +14,22 @@ export default function SettingsPage() {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const res = await fetch('/api/settings');
+        const [meRes, res] = await Promise.all([
+          fetch('/api/auth/me', { cache: 'no-store' }),
+          fetch('/api/settings'),
+        ]);
+
+        if (meRes.ok) {
+          const meJson = await meRes.json();
+          if (meJson?.data?.role !== 'super_admin') {
+            window.location.href = '/hrd/dashboard';
+            return;
+          }
+        } else {
+          window.location.href = '/';
+          return;
+        }
+
         if (res.status === 403) {
           window.location.href = '/hrd/dashboard';
           return;
@@ -115,7 +130,12 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold text-white mb-1">Pengaturan Lokasi & Radius Absensi</h1>
+        <div className="flex items-center gap-2 mb-1">
+          <h1 className="text-2xl font-bold text-white">Pengaturan Lokasi & Radius Absensi</h1>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+            SUPER ADMIN
+          </span>
+        </div>
         <p className="text-slate-400">Konfigurasi koordinat GPS kantor dan batas radius maksimal absensi.</p>
       </div>
 

@@ -22,17 +22,31 @@ import {
   getBatchWeekNumber,
   getDefaultRecapRange,
 } from '@/lib/utils';
+import { getHolidaysList } from '@/lib/work-config';
 import type { Batch, AttendanceCode, AttendanceRecapData, MatrixDepartmentGroup, MatrixRow } from '@/types';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const VALID_CODES: AttendanceCode[] = ['H', '1/2', 'I', 'S', 'A'];
+const VALID_CODES: AttendanceCode[] = ['H', '1/2', 'I', 'S', 'A', 'HL'];
 const MAX_RANGE_DAYS = 200;
 
 const DAY_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
 // Generate calendar days between two dates (inclusive) with week labels relative to the batch start
-function getDatesInRange(start: string, end: string, batch: Batch) {
-  const result: { date: string; dayName: string; is_weekend: boolean; weekNumber: number; weekLabel: string }[] = [];
+function getDatesInRange(
+  start: string,
+  end: string,
+  batch: Batch,
+  holidayMap: Map<string, string>
+) {
+  const result: {
+    date: string;
+    dayName: string;
+    is_weekend: boolean;
+    is_holiday: boolean;
+    holiday_name: string | null;
+    weekNumber: number;
+    weekLabel: string;
+  }[] = [];
   const totalWeeks = getBatchWeekCount(batch.start_date, batch.end_date);
 
   let curr = start;
@@ -41,11 +55,14 @@ function getDatesInRange(start: string, end: string, batch: Batch) {
     const dayOfWeek = dayOfWeekISO(curr); // 0 is Sunday, 6 is Saturday
     const weekNumber = getBatchWeekNumber(curr, batch.start_date);
     const insideBatch = weekNumber >= 1 && weekNumber <= totalWeeks;
+    const holidayName = holidayMap.get(curr) || null;
 
     result.push({
       date: curr,
       dayName: DAY_NAMES[dayOfWeek],
       is_weekend: dayOfWeek === 0 || dayOfWeek === 6,
+      is_holiday: Boolean(holidayName),
+      holiday_name: holidayName,
       weekNumber,
       weekLabel: insideBatch ? `MINGGU ${weekNumber}` : 'DI LUAR BATCH',
     });
@@ -106,7 +123,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const dateList = getDatesInRange(startDate, endDate, activeBatch);
+    // Fetch holidays in range
+    const { holidays: rangeHolidays } = await getHolidaysList(supabase, {
+      startDate,
+      endDate,
+    });
+    const holidayMap = new Map<string, string>();
+    for (const h of rangeHolidays) {
+      holidayMap.set(h.date, h.name);
+    }
+
+    const dateList = getDatesInRange(startDate, endDate, activeBatch, holidayMap);
 
     // Group consecutive days with the same week label for colSpan header
     const weeks: { label: string; dateCount: number }[] = [];
@@ -158,16 +185,24 @@ export async function GET(request: NextRequest) {
 
       const userRecs = userAttendanceMap.get(intern.id) || new Map();
       const cells: MatrixRow['cells'] = {};
-      const summary = { H: 0, S: 0, I: 0, A: 0, Full: 0, Half: 0 };
+      const summary = { H: 0, S: 0, I: 0, A: 0, Full: 0, Half: 0, HL: 0 };
       const notesList: string[] = [];
 
       for (const d of dateList) {
         const rec = userRecs.get(d.date);
         let code: AttendanceCode | null = null;
         let isPerbantuan = intern.status === 'perbantuan';
+        const isOvertimeRecord =
+          rec?.attendance_status === 'HL' ||
+          rec?.is_overtime === true ||
+          (typeof rec?.notes === 'string' &&
+            (rec.notes.includes('[LEMBUR]') || rec.notes.includes('[LEMBUR-DISETUJUI]'))) ||
+          ((d.is_weekend || d.is_holiday) && Boolean(rec?.check_in_time));
 
         if (rec) {
-          if (rec.attendance_status) {
+          if (rec.attendance_status === 'HL' || isOvertimeRecord) {
+            code = 'HL';
+          } else if (rec.attendance_status) {
             code = rec.attendance_status as AttendanceCode;
           } else if (rec.status === 'full_day') {
             code = 'H';
@@ -190,6 +225,8 @@ export async function GET(request: NextRequest) {
           summary.Full += 1;
         } else if (code === '1/2') {
           summary.Half += 1;
+        } else if (code === 'HL') {
+          summary.HL += 1;
         } else if (code === 'I') {
           summary.I += 1;
         } else if (code === 'S') {
@@ -202,7 +239,14 @@ export async function GET(request: NextRequest) {
           date: d.date,
           code,
           is_weekend: d.is_weekend,
+          is_holiday: d.is_holiday,
+          holiday_name: d.holiday_name,
           is_perbantuan: isPerbantuan,
+          is_overtime: isOvertimeRecord,
+          overtime_approved:
+            rec?.overtime_approved === true ||
+            rec?.attendance_status === 'HL' ||
+            (typeof rec?.notes === 'string' && rec.notes.includes('[LEMBUR-DISETUJUI]')),
           notes: rec?.notes || null,
           record_id: rec?.id,
           attended: isAttendedRecord(rec),
@@ -263,6 +307,8 @@ export async function GET(request: NextRequest) {
         date: d.date,
         dayName: d.dayName,
         is_weekend: d.is_weekend,
+        is_holiday: d.is_holiday,
+        holiday_name: d.holiday_name,
         weekLabel: d.weekLabel,
       })),
       weeks,
@@ -294,6 +340,7 @@ function isAttendedRecord(rec: any): boolean {
     !!rec.check_in_time ||
     rec.attendance_status === 'H' ||
     rec.attendance_status === '1/2' ||
+    rec.attendance_status === 'HL' ||
     rec.status === 'full_day' ||
     rec.status === 'half_day'
   );
@@ -384,7 +431,7 @@ export async function PUT(request: NextRequest) {
 
     // Map code to status
     let status: 'full_day' | 'half_day' | 'pending' = 'pending';
-    if (attendance_status === 'H') status = 'full_day';
+    if (attendance_status === 'H' || attendance_status === 'HL') status = 'full_day';
     if (attendance_status === '1/2') status = 'half_day';
 
     const editMeta = {
@@ -393,20 +440,28 @@ export async function PUT(request: NextRequest) {
       last_edited_at: new Date().toISOString(),
     };
 
+    const isOvertimeCode = attendance_status === 'HL';
+    const noteWithOvertimeTag = isOvertimeCode
+      ? trimmedNotes.includes('[LEMBUR-DISETUJUI]')
+        ? trimmedNotes
+        : `[LEMBUR-DISETUJUI] ${trimmedNotes || 'Lembur Sabtu/Hari Libur'}`.trim()
+      : trimmedNotes;
+
     let result;
     if (existing) {
       const update: Record<string, any> = {
         attendance_status,
         status,
+        ...(isOvertimeCode ? { is_overtime: true, overtime_approved: true } : {}),
         ...editMeta,
       };
-      if (notes !== undefined) update.notes = trimmedNotes || null;
+      if (notes !== undefined || isOvertimeCode) update.notes = noteWithOvertimeTag || null;
 
       // Present codes need complete times so the day is counted in the payout
-      if (attendance_status === 'H' || attendance_status === '1/2') {
-        if (!existing.check_in_time) update.check_in_time = wibTime(date, '08:00');
+      if (attendance_status === 'H' || attendance_status === '1/2' || attendance_status === 'HL') {
+        if (!existing.check_in_time) update.check_in_time = wibTime(date, '08:30');
         if (!existing.check_out_time) {
-          update.check_out_time = wibTime(date, attendance_status === 'H' ? '17:00' : '12:00');
+          update.check_out_time = wibTime(date, attendance_status === '1/2' ? '12:30' : '16:00');
         }
       }
 
@@ -416,22 +471,57 @@ export async function PUT(request: NextRequest) {
         .eq('id', existing.id)
         .select()
         .single();
+
+      // Fallback if migration_v6 columns/constraint ('HL', 'is_overtime') are not yet applied in Supabase
+      if (result.error && isOvertimeCode) {
+        const fallbackUpdate: Record<string, any> = { ...update, attendance_status: 'H' };
+        delete fallbackUpdate.is_overtime;
+        delete fallbackUpdate.overtime_approved;
+        result = await supabase
+          .from('attendance')
+          .update(fallbackUpdate)
+          .eq('id', existing.id)
+          .select()
+          .single();
+      }
     } else {
+      const insertPayload: Record<string, any> = {
+        user_id,
+        date,
+        attendance_status,
+        status,
+        is_perbantuan: targetUser.status === 'perbantuan',
+        ...(isOvertimeCode ? { is_overtime: true, overtime_approved: true } : {}),
+        notes: noteWithOvertimeTag || null,
+        check_in_time:
+          attendance_status === 'H' || attendance_status === '1/2' || attendance_status === 'HL'
+            ? wibTime(date, '08:30')
+            : null,
+        check_out_time:
+          attendance_status === 'H' || attendance_status === 'HL'
+            ? wibTime(date, '16:00')
+            : attendance_status === '1/2'
+            ? wibTime(date, '12:30')
+            : null,
+        ...editMeta,
+      };
+
       result = await supabase
         .from('attendance')
-        .insert({
-          user_id,
-          date,
-          attendance_status,
-          status,
-          is_perbantuan: targetUser.status === 'perbantuan',
-          notes: trimmedNotes || null,
-          check_in_time: null,
-          check_out_time: null,
-          ...editMeta,
-        })
+        .insert(insertPayload)
         .select()
         .single();
+
+      if (result.error && isOvertimeCode) {
+        const fallbackInsert: Record<string, any> = { ...insertPayload, attendance_status: 'H' };
+        delete fallbackInsert.is_overtime;
+        delete fallbackInsert.overtime_approved;
+        result = await supabase
+          .from('attendance')
+          .insert(fallbackInsert)
+          .select()
+          .single();
+      }
     }
 
     if (result.error) throw result.error;
